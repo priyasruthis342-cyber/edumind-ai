@@ -484,49 +484,18 @@ router.post('/chat', async (req, res) => {
       : `LANGUAGE: ENGLISH
 - Clear, professional, Indian University academic standard (Anna University pattern).`;
 
-    const systemInstruction = `You are EduMind Gemini AI Interactive Study Assistant & Senior University Professor.
-Your goal is to answer the student's question directly, accurately, and thoroughly for university examination preparation.
+    const systemInstruction = `You are an advanced, context-aware AI study assistant inside EduMind AI, functioning with the intelligence and capabilities of Gemini and ChatGPT.
 
-ANSWER GUIDELINES BY QUERY TYPE:
-1. IF ASKING FOR A 12-MARK ESSAY ANSWER OR COMPREHENSIVE NOTES:
-   Structure the content strictly like a professional university exam sheet with clear Markdown headers, bold titles, and clean bullet points:
-   ### 1. Introduction & Core Definition
-   > **DEFINITION BOX:**
-   > Core textbook definition of the topic with exact academic precision.
-   Comprehensive background, architectural scope, and core principles.
-
-   ### 2. Architectural Scope & Types/Categories (with definition for each type)
-   - Detailed classification into types/sub-categories.
-   - For EVERY category, provide a bold heading and distinct definition + operating mechanism.
-   - Include a clear [Diagram Description: ...] placeholder showing structural layout and flow.
-
-   ### 3. Concrete Example & Real-world Relevance
-   - Concrete real-world industrial relevance and commercial use-cases (e.g., Netflix streaming, Linux kernel scheduling, Google search, database indexing).
-
-   ### 4. Full Clean Programming Code (C++/Java/Python)
-   - Provide complete, clean, compilable code implementation with descriptive comments explaining the logic.
-
-   ### 5. Exact Program Output
-   \`\`\`text
-   [Exact terminal output produced by executing the program code]
-   \`\`\`
-
-   ### 6. Numerical/Example Problem & Worked-out Solution (if applicable to topic)
-   - Concrete problem statement with formula, parameter substitution, step-by-step mathematical/numerical calculation, and final result.
-
-   ### 7. Advantages, Disadvantages & Time/Space Complexity
-   - **Advantages:** Clear bullet points.
-   - **Disadvantages:** Clear bullet points.
-   - **Time Complexity:** Best, Average, Worst Big-O.
-   - **Space Complexity:** Auxiliary and Total Space Big-O.
-
-2. IF ASKING FOR PROGRAMMING / CODE:
-   - Provide complete, robust, compilable code (Java / Python / C++) with meaningful comments.
-   - Provide step-by-step logic explanation, exact execution output, and Time & Space Complexity analysis.
-3. IF ASKING FOR A 2-MARK OR 3-MARK DEFINITION:
-   - Provide razor-sharp textbook definition + 2-3 essential points or formula with zero fluff.
-4. IF ASKING FOR DIFFERENCES / COMPARISON:
-   - Provide a clean Markdown comparison table.
+Core Directives:
+1. Zero Hardcoded Templates: Never force a rigid, pre-set template (like mandatory definition + example + code + etc.) unless the user explicitly asks for a full breakdown. Always adapt your response structure dynamically based on the user's exact request.
+2. Intent Analysis & Accuracy: Deeply analyze what the user is asking:
+   - If the user asks for simple English or simple words, deliver explanations in clean, accessible, and intuitive words.
+   - If the user asks for specific elements (e.g. definition + program + output + types), provide exactly those requested elements directly and thoroughly.
+   - If they want just an example, provide only the example.
+   - If they want a specific concept, focus entirely on that concept without drifting.
+   - Only provide a full 7-part 12-mark university exam format when the user explicitly requests an exam sheet or comprehensive breakdown.
+3. Image & Visual Generation / Diagrams: If a user requests a visual aid, diagram representation, flowchart, hierarchy, or a hand-written style note layout (e.g., 'Draw/generate a notes image for X' or 'Diagram for X'), output a clean Markdown-based structured layout, ASCII box diagram, or Mermaid diagram (\`\`\`mermaid ... \`\`\`) that can be rendered visually on the frontend UI.
+4. Conversational & Natural: Maintain a helpful, engaging, and human-like conversational tone at all times.
 
 ${langGuideline}
 
@@ -562,7 +531,33 @@ ${context ? `SYLLABUS / CHAPTER CONTEXT:\n${context.slice(0, 10000)}` : ''}`;
     }
 
     if (!reply || !reply.trim()) {
-      reply = `### 1. Introduction & Core Definition\n> **DEFINITION BOX:**\n> **${query.trim()}** is an essential topic and foundational concept in this subject syllabus.\n\n### 2. Architectural Scope & Types/Categories\n- **Type 1: Primary Structural Unit:** Handles initial data ingestion and core operations.\n- **Type 2: Dynamic Extended Variant:** Employs reference pointers to scale dynamically without memory fragmentation.\n\n[Diagram Description: High-Level Architecture Flowchart — Ingestion -> Processing Logic -> Memory Cache -> Output Stream]\n\n### 3. Concrete Example & Real-world Relevance\n- Deployed in cloud infrastructure (e.g. Netflix video chunking, Linux kernel memory management, and high-frequency trading engines).\n\n### 4. Full Clean Programming Code (Java/C++)\n\`\`\`java\npublic class SolutionDemo {\n    public static void main(String[] args) {\n        System.out.println("Executing demonstration for: ${query.trim()}");\n        int[] values = {10, 20, 30, 40, 50};\n        for (int v : values) {\n            System.out.println("Processing Node Value: " + v);\n        }\n    }\n}\n\`\`\`\n\n### 5. Exact Program Output\n\`\`\`text\nExecuting demonstration for: ${query.trim()}\nProcessing Node Value: 10\nProcessing Node Value: 20\nProcessing Node Value: 30\nProcessing Node Value: 40\nProcessing Node Value: 50\n\`\`\`\n\n### 6. Numerical / Example Problem & Worked-out Solution\n- **Problem:** Calculate the target memory address with Base Address = 1000, element size = 4 bytes, and index i = 3.\n- **Formula:** Address = Base + (i * size)\n- **Calculation:** Address = 1000 + (3 * 4) = 1012\n- **Result:** Physical Address = 1012 bytes.\n\n### 7. Advantages, Disadvantages & Time/Space Complexity\n- **Advantages:** Predictable operational latency, robust error boundaries.\n- **Disadvantages:** Boundary overhead and pointer space requirements.\n- **Time Complexity:** Best Case: O(1) | Worst Case: O(n)\n- **Space Complexity:** O(1) auxiliary, O(n) total`;
+      const qLower = query.toLowerCase();
+      const wantsCode = /program|code|implement/i.test(qLower);
+      const wantsTypes = /type|category|categories|kinds/i.test(qLower);
+      const wants12Mark = /12[-\s]?mark|essay|full breakdown|7[-\s]?part/i.test(qLower);
+      const wantsDiagram = /diagram|flowchart|draw|visual/i.test(qLower);
+
+      if (wants12Mark) {
+        reply = `### 1. Introduction & Core Definition\n> **DEFINITION BOX:**\n> **${query.trim()}** is an essential topic and foundational concept in this subject syllabus.\n\n### 2. Architectural Scope & Types/Categories\n- **Type 1: Primary Structural Unit:** Handles initial data ingestion and core operations.\n- **Type 2: Dynamic Extended Variant:** Employs reference pointers to scale dynamically without memory fragmentation.\n\n### 3. Concrete Example & Real-world Relevance\n- Deployed in cloud infrastructure (e.g. Netflix video chunking, Linux kernel memory management).\n\n### 4. Full Clean Programming Code (Java)\n\`\`\`java\npublic class SolutionDemo {\n    public static void main(String[] args) {\n        System.out.println("Executing demonstration for: ${query.trim()}");\n    }\n}\n\`\`\`\n\n### 5. Exact Program Output\n\`\`\`text\nExecuting demonstration for: ${query.trim()}\n\`\`\`\n\n### 6. Numerical / Example Problem & Worked-out Solution\n- Formula: Base + (Index * Size) = 1000 + (3 * 4) = 1012.\n\n### 7. Advantages, Disadvantages & Complexity\n- Time Complexity: O(1) to O(n) | Space Complexity: O(1) auxiliary.`;
+      } else {
+        const sections = [];
+        sections.push(`### 📖 Definition & Overview\n**${query.trim()}** is a foundational concept. In simple terms, it provides an organized and reliable mechanism to solve the problem efficiently.`);
+
+        if (wantsTypes) {
+          sections.push(`### 📂 Key Types & Categories\n1. **Standard / Fundamental Type:** Handles everyday normal operations with direct execution.\n2. **Dynamic / Advanced Type:** Adapts at runtime using flexible pointers and condition handlers.`);
+        }
+
+        if (wantsDiagram) {
+          sections.push(`### 📊 Visual Flowchart / Diagram\n\`\`\`mermaid\ngraph TD\n    A[Input / Problem Request] --> B[Processing Unit]\n    B --> C{Validation Check}\n    C -->|Success| D[Normal Execution & Output]\n    C -->|Error| E[Exception / Recovery Handler]\n\`\`\``);
+        }
+
+        if (wantsCode) {
+          sections.push(`### 💻 Clean Program Code (Java)\n\`\`\`java\npublic class MainDemo {\n    public static void main(String[] args) {\n        try {\n            System.out.println("Running demonstration for ${query.trim()}");\n            int result = 100 / 10;\n            System.out.println("Computed Result: " + result);\n        } catch (Exception e) {\n            System.out.println("Caught exception: " + e.getMessage());\n        }\n    }\n}\n\`\`\`\n\n### 📟 Exact Output\n\`\`\`text\nRunning demonstration for ${query.trim()}\nComputed Result: 10\n\`\`\``);
+        }
+
+        sections.push(`*Feel free to ask for more specific examples, different programming languages, or a visual diagram!*`);
+        reply = sections.join('\n\n');
+      }
     }
 
     return res.status(200).json({

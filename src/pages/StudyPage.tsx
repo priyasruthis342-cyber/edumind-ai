@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Sparkles, Star, CheckCircle2, XCircle,
   BookOpen, Award, Eye, EyeOff, Loader2, AlertTriangle,
-  Layers, FileText, Check, Globe, Volume2,
-  Send, Bot, User, Copy, Code,
-  Terminal, Calculator
+  Layers, FileText, Check, Globe, Volume2, VolumeX,
+  Send, Bot, User, Copy, Code, Mic, MicOff,
+  Terminal, Calculator, Radio, Image as ImageIcon
 } from 'lucide-react';
 import { getScan, setActiveSyllabus } from '@/lib/data';
 import { fetchGroqStudyData, type GroqAIResponse } from '@/lib/groqApi';
@@ -14,6 +14,8 @@ import {
   type GeminiExamQAResponse
 } from '@/lib/geminiApi';
 import type { Scan } from '@/types';
+import { LiveVoiceOrb, type VoiceAssistantState } from '@/components/study/LiveVoiceOrb';
+import { findVoice } from '@/lib/speech';
 
 interface StudyPageProps {
   id: string;
@@ -28,7 +30,28 @@ interface ChatMessage {
   timestamp: string;
 }
 
-function renderFormattedChatMessage(text: string) {
+function renderInlineMarkup(rawText: string) {
+  const chunks = rawText.split(/(\*\*.*?\*\*|`.*?`)/g);
+  return chunks.map((chunk, idx) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return (
+        <strong key={idx} className="font-bold text-ink">
+          {chunk.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (chunk.startsWith('`') && chunk.endsWith('`') && chunk.length > 2) {
+      return (
+        <code key={idx} className="rounded bg-teal-50 px-1 py-0.5 font-mono text-[11px] font-semibold text-teal-800 border border-teal-200/60">
+          {chunk.slice(1, -1)}
+        </code>
+      );
+    }
+    return chunk;
+  });
+}
+
+function renderFormattedChatMessage(text: string, activeSpokenText: string = '', isCurrentlySpeaking: boolean = false) {
   const parts = text.split(/(```[\s\S]*?```)/g);
   return (
     <div className="space-y-2.5 font-sans">
@@ -37,14 +60,35 @@ function renderFormattedChatMessage(text: string) {
           const lines = part.slice(3, -3).trim().split('\n');
           const firstLine = lines[0].trim();
           const hasLang = /^[a-z0-9_-]+$/i.test(firstLine);
-          const lang = hasLang ? firstLine : '';
+          const lang = hasLang ? firstLine.toLowerCase() : '';
           const codeContent = hasLang ? lines.slice(1).join('\n') : lines.join('\n');
+
+          // Render Mermaid Diagram or Visual Flowchart Card
+          if (lang === 'mermaid' || codeContent.startsWith('graph ') || codeContent.startsWith('flowchart ')) {
+            return (
+              <div key={pIdx} className="rounded-2xl border-2 border-cyan-500/40 bg-slate-950 p-4 my-3 text-cyan-200 shadow-xl">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-cyan-800/60">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                    <Layers className="h-4 w-4 text-cyan-400" />
+                    Visual Diagram / Flowchart Structure
+                  </span>
+                  <span className="text-[10px] text-cyan-400/80 font-mono bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                    Diagram
+                  </span>
+                </div>
+                <pre className="text-cyan-100 font-mono text-xs whitespace-pre leading-relaxed bg-slate-900/90 p-3 rounded-xl border border-cyan-900/60 overflow-x-auto">
+                  {codeContent}
+                </pre>
+              </div>
+            );
+          }
 
           return (
             <div key={pIdx} className="rounded-xl bg-stone-900 border border-stone-800 p-3 my-2 text-stone-100 font-mono text-xs overflow-x-auto shadow-inner">
               {lang && (
-                <div className="text-[10px] font-bold uppercase text-teal-400 mb-1.5 pb-1 border-b border-stone-800">
-                  {lang}
+                <div className="text-[10px] font-bold uppercase text-teal-400 mb-1.5 pb-1 border-b border-stone-800 flex items-center justify-between">
+                  <span>{lang}</span>
+                  <span className="text-[9px] text-stone-500">Program Code</span>
                 </div>
               )}
               <pre className="text-emerald-300 whitespace-pre leading-relaxed">{codeContent}</pre>
@@ -59,39 +103,44 @@ function renderFormattedChatMessage(text: string) {
               const trimmed = line.trim();
               if (!trimmed) return <div key={lIdx} className="h-1" />;
 
+              // Highlight line if matching active speech
+              const isSpokenLine = isCurrentlySpeaking && activeSpokenText && trimmed.length > 5 && (
+                activeSpokenText.includes(trimmed.slice(0, 30)) || trimmed.includes(activeSpokenText.slice(0, 30))
+              );
+
               if (trimmed.startsWith('### ')) {
                 return (
-                  <h4 key={lIdx} className="font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100">
-                    {trimmed.replace(/^###\s*/, '')}
+                  <h4 key={lIdx} className={`font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100 ${isSpokenLine ? 'text-cyan-700 bg-cyan-50/70 px-1 rounded' : ''}`}>
+                    {renderInlineMarkup(trimmed.replace(/^###\s*/, ''))}
                   </h4>
                 );
               }
               if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
                 return (
-                  <h3 key={lIdx} className="font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200">
-                    {trimmed.replace(/^#+\s*/, '')}
+                  <h3 key={lIdx} className={`font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200 ${isSpokenLine ? 'text-cyan-700 bg-cyan-50/70 px-1 rounded' : ''}`}>
+                    {renderInlineMarkup(trimmed.replace(/^#+\s*/, ''))}
                   </h3>
                 );
               }
               if (trimmed.startsWith('> ')) {
                 return (
-                  <div key={lIdx} className="border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed">
-                    {trimmed.replace(/^>\s*/, '')}
+                  <div key={lIdx} className={`border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed ${isSpokenLine ? 'ring-2 ring-cyan-400 bg-cyan-50' : ''}`}>
+                    {renderInlineMarkup(trimmed.replace(/^>\s*/, ''))}
                   </div>
                 );
               }
               if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
                 return (
-                  <div key={lIdx} className="flex items-start gap-1.5 text-xs text-stone-700 pl-2">
+                  <div key={lIdx} className={`flex items-start gap-1.5 text-xs text-stone-700 pl-2 ${isSpokenLine ? 'bg-cyan-50/80 rounded px-1 text-cyan-900 font-medium' : ''}`}>
                     <span className="text-teal-600 font-bold">•</span>
-                    <span>{trimmed.replace(/^[-*]\s*/, '')}</span>
+                    <span>{renderInlineMarkup(trimmed.replace(/^[-*]\s*/, ''))}</span>
                   </div>
                 );
               }
 
               return (
-                <p key={lIdx} className="text-xs text-stone-800 leading-relaxed font-normal">
-                  {line}
+                <p key={lIdx} className={`text-xs text-stone-800 leading-relaxed font-normal ${isSpokenLine ? 'bg-cyan-50 rounded px-1 text-cyan-950 font-medium ring-1 ring-cyan-200' : ''}`}>
+                  {renderInlineMarkup(line)}
                 </p>
               );
             })}
@@ -153,9 +202,188 @@ export function StudyPage({ id }: StudyPageProps) {
     setTimeout(() => setCopiedCodeId(null), 2500);
   };
 
-  const handleSendChat = async (customQuery?: string) => {
+  // ── Live Voice Assistant (STT & TTS Synchronized Integration) ──
+  const [isLiveVoiceActive, setIsLiveVoiceActive] = useState<boolean>(true);
+  const [voiceState, setVoiceState] = useState<VoiceAssistantState>('idle');
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [activeSpokenText, setActiveSpokenText] = useState<string>('');
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const speechChunksRef = useRef<string[]>([]);
+  const speechIndexRef = useRef<number>(0);
+
+  const stopSpeaking = useCallback(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingMessageId(null);
+    setActiveSpokenText('');
+    setVoiceState((prev) => (prev === 'speaking' ? 'idle' : prev));
+  }, []);
+
+  const speakMessageSynchronized = useCallback((text: string, msgId: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const synth = window.speechSynthesis;
+    synth.cancel();
+
+    // Toggle off if already speaking this message
+    if (speakingMessageId === msgId) {
+      stopSpeaking();
+      return;
+    }
+
+    // Strip code blocks and markdown symbols for natural audio speech
+    const cleanNarration = text
+      .replace(/```[\s\S]*?```/g, ' [Code details provided below] ')
+      .replace(/[#*`>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const sentences = cleanNarration
+      .split(/(?<=[.!?\n])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 2);
+
+    if (!sentences.length) return;
+
+    setSpeakingMessageId(msgId);
+    setVoiceState('speaking');
+    speechChunksRef.current = sentences;
+    speechIndexRef.current = 0;
+
+    const speechTag = language === 'ta' ? 'ta-IN' : 'en-US';
+    const voice = findVoice(speechTag);
+
+    const speakNext = () => {
+      const idx = speechIndexRef.current;
+      if (idx >= speechChunksRef.current.length) {
+        setSpeakingMessageId(null);
+        setActiveSpokenText('');
+        setVoiceState('idle');
+        return;
+      }
+
+      const sentence = speechChunksRef.current[idx];
+      setActiveSpokenText(sentence);
+
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      }
+      utterance.rate = 0.92;
+      utterance.pitch = 1.05;
+
+      utterance.onend = () => {
+        speechIndexRef.current += 1;
+        speakNext();
+      };
+
+      utterance.onerror = () => {
+        setSpeakingMessageId(null);
+        setActiveSpokenText('');
+        setVoiceState('idle');
+      };
+
+      synth.speak(utterance);
+    };
+
+    speakNext();
+  }, [language, speakingMessageId, stopSpeaking]);
+
+  const startListening = () => {
+    if (typeof window === 'undefined') return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert('Speech recognition is supported in Chrome, Edge, and Safari browsers. Please type your query in the input box.');
+      return;
+    }
+
+    stopSpeaking();
+
+    try {
+      const recognition = new SpeechRec();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
+
+      recognition.onstart = () => {
+        setVoiceState('listening');
+        setLiveTranscript('');
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const currentText = final || interim;
+        setLiveTranscript(currentText);
+        setChatInput(currentText);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (err: any) => {
+        console.warn('Speech recognition error:', err);
+        setVoiceState('idle');
+      };
+
+      recognition.onend = () => {
+        setVoiceState('idle');
+        if (liveTranscript.trim()) {
+          const query = liveTranscript.trim();
+          setLiveTranscript('');
+          void handleSendChat(query, true);
+        }
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.warn('Failed to start speech recognition:', err);
+      setVoiceState('idle');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    setVoiceState('idle');
+    if (liveTranscript.trim()) {
+      const query = liveTranscript.trim();
+      setLiveTranscript('');
+      void handleSendChat(query, true);
+    }
+  };
+
+  const toggleListening = () => {
+    if (voiceState === 'listening') {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  const handleSendChat = async (customQuery?: string, autoSpeak: boolean = false) => {
     const queryToSend = (customQuery || chatInput).trim();
     if (!queryToSend || chatLoading) return;
+
+    stopSpeaking();
 
     const userMsg: ChatMessage = {
       id: 'user_' + Date.now(),
@@ -167,6 +395,7 @@ export function StudyPage({ id }: StudyPageProps) {
     setChatMessages((prev) => [...prev, userMsg]);
     setChatInput('');
     setChatLoading(true);
+    setVoiceState('thinking');
     setChatError(null);
 
     try {
@@ -175,16 +404,25 @@ export function StudyPage({ id }: StudyPageProps) {
         scan?.raw_text || '',
         language
       );
+      const newMsgId = 'gemini_' + Date.now();
       const geminiMsg: ChatMessage = {
-        id: 'gemini_' + Date.now(),
+        id: newMsgId,
         sender: 'gemini',
         text: aiReply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, geminiMsg]);
+
+      // If user invoked via voice or voice assistant is active, auto-speak synchronized response!
+      if (autoSpeak || isLiveVoiceActive) {
+        speakMessageSynchronized(aiReply, newMsgId);
+      } else {
+        setVoiceState('idle');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not reach Gemini AI.';
       setChatError(msg);
+      setVoiceState('idle');
     } finally {
       setChatLoading(false);
     }
@@ -710,12 +948,12 @@ export function StudyPage({ id }: StudyPageProps) {
         </section>
       )}
 
-      {/* ── Interactive Gemini AI Live Study Assistant Chat Box ── */}
+      {/* ── Interactive Gemini AI Live Study Assistant & Live Voice Orb ── */}
       <section className="space-y-4 pt-2">
         <div className="rounded-3xl border-2 border-indigo-200 bg-white p-6 sm:p-8 shadow-xl space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-teal-600 via-indigo-600 to-purple-600 text-white shadow-md">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 text-white shadow-lg">
                 <Sparkles className="h-6 w-6 animate-pulse" />
               </div>
               <div>
@@ -725,32 +963,71 @@ export function StudyPage({ id }: StudyPageProps) {
                   </h3>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                    Online
+                    Live Voice AI
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5">
                   {language === 'ta'
-                    ? '12-மதிப்பெண் வினாக்கள், நிரல்கள் (Code), அல்லது விளக்கங்களை நேரடியாகக் கேளுங்கள்.'
-                    : 'Ask for custom 12-mark essay answers, code snippets, definitions, or exam diagrams.'}
+                    ? 'இயல்பான பேச்சு, வரைபடங்கள் (Diagrams), எளிய விளக்கங்கள் & நேரலை குரல் உரையாடல்.'
+                    : 'Natural conversations, visual diagrams, simple explanations & live voice tutor.'}
                 </p>
               </div>
             </div>
 
-            <div className="text-xs text-stone-500 font-medium">
-              Syllabus: <strong className="text-teal-800">{geminiData?.chapter_title || scan?.chapter_title || 'Active Material'}</strong>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsLiveVoiceActive(!isLiveVoiceActive)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                  isLiveVoiceActive
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-cyan-500/20'
+                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-300'
+                }`}
+              >
+                <Radio className={`h-3.5 w-3.5 ${isLiveVoiceActive ? 'animate-pulse text-cyan-200' : 'text-stone-500'}`} />
+                <span>{isLiveVoiceActive ? 'Voice Orb: Active' : 'Enable Voice Orb'}</span>
+              </button>
+
+              <div className="text-xs text-stone-500 font-medium hidden sm:block">
+                Syllabus: <strong className="text-teal-800">{geminiData?.chapter_title || scan?.chapter_title || 'Active Material'}</strong>
+              </div>
             </div>
           </div>
+
+          {/* ── Glowing Blue Orb Visualizer (Live Voice Assistant) ── */}
+          {isLiveVoiceActive && (
+            <div className="mb-2">
+              <LiveVoiceOrb
+                state={voiceState}
+                language={language}
+                liveTranscript={liveTranscript}
+                activeSpokenText={activeSpokenText}
+                onToggleListening={toggleListening}
+                onStopSpeaking={stopSpeaking}
+                onClose={() => setIsLiveVoiceActive(false)}
+              />
+            </div>
+          )}
 
           {/* Quick Prompt Suggestion Pills */}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam answer for "${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}" strictly structured with all 7 sections: 1. Introduction & Core Definition, 2. Architectural Scope & Types/Categories, 3. Concrete Example & Real-world Relevance, 4. Full Clean Programming Code, 5. Exact Program Output, 6. Numerical/Example Problem & Worked-out Solution, and 7. Advantages, Disadvantages & Time/Space Complexity.`)}
+              onClick={() => handleSendChat(`Draw a clean visual flowchart / architectural diagram with clear stages and component breakdown for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
               disabled={chatLoading}
-              className="rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 px-3 py-1.5 text-xs font-semibold text-indigo-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+              className="rounded-xl border border-cyan-300 bg-cyan-50/80 hover:bg-cyan-100 px-3 py-1.5 text-xs font-semibold text-cyan-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
             >
-              <FileText className="h-3.5 w-3.5 text-indigo-600" />
-              📝 7-Part 12-Mark Exam Sheet
+              <ImageIcon className="h-3.5 w-3.5 text-cyan-700" />
+              🎨 Draw Diagram / Flowchart
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSendChat(`Explain in simple English words: give me the definition, key types with definitions, a real-world example, and clean code with output for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+              disabled={chatLoading}
+              className="rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
+              💡 Simple Explanation &amp; Types
             </button>
             <button
               type="button"
@@ -763,24 +1040,6 @@ export function StudyPage({ id }: StudyPageProps) {
             </button>
             <button
               type="button"
-              onClick={() => handleSendChat(`Provide a numerical / worked-out example problem with step-by-step formula and complete solution for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Calculator className="h-3.5 w-3.5 text-purple-600" />
-              🔢 Numerical Problem &amp; Solution
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Provide crisp 2-mark and 3-mark university definitions with key formulas/features for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-amber-600" />
-              📖 2 &amp; 3-Mark Definitions
-            </button>
-            <button
-              type="button"
               onClick={() => handleSendChat(`Give a point-by-point tabular comparison highlighting key differences and trade-offs for topics in: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
               disabled={chatLoading}
               className="rounded-xl border border-stone-300 bg-stone-100 hover:bg-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-800 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
@@ -788,17 +1047,26 @@ export function StudyPage({ id }: StudyPageProps) {
               <Layers className="h-3.5 w-3.5 text-stone-600" />
               ⚡ Tabular Comparison
             </button>
+            <button
+              type="button"
+              onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam answer for "${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}" strictly structured with all 7 sections: 1. Introduction & Core Definition, 2. Architectural Scope & Types/Categories, 3. Concrete Example & Real-world Relevance, 4. Full Clean Programming Code, 5. Exact Program Output, 6. Numerical/Example Problem & Worked-out Solution, and 7. Advantages, Disadvantages & Time/Space Complexity.`)}
+              disabled={chatLoading}
+              className="rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 px-3 py-1.5 text-xs font-semibold text-indigo-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <FileText className="h-3.5 w-3.5 text-indigo-600" />
+              📝 7-Part 12-Mark Exam Sheet
+            </button>
           </div>
 
           {/* Chat Messages Feed */}
-          <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2 rounded-2xl bg-stone-50/60 p-4 border border-stone-200/80">
+          <div className="space-y-4 max-h-[440px] overflow-y-auto pr-2 rounded-2xl bg-stone-50/70 p-4 border border-stone-200/80">
             {chatMessages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.sender === 'gemini' && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-xs text-xs font-bold mt-1">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-700 to-indigo-700 text-white shadow-xs text-xs font-bold mt-1">
                     <Bot className="h-4 w-4" />
                   </div>
                 )}
@@ -819,21 +1087,43 @@ export function StudyPage({ id }: StudyPageProps) {
 
                   <div className="font-sans">
                     {msg.sender === 'gemini' ? (
-                      renderFormattedChatMessage(msg.text)
+                      renderFormattedChatMessage(msg.text, activeSpokenText, speakingMessageId === msg.id)
                     ) : (
                       <div className="whitespace-pre-wrap">{msg.text}</div>
                     )}
                   </div>
 
                   {msg.sender === 'gemini' && (
-                    <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-end">
+                    <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => speakMessageSynchronized(msg.text, msg.id)}
+                        className={`text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer px-2 py-1 rounded-lg ${
+                          speakingMessageId === msg.id
+                            ? 'bg-cyan-100 text-cyan-800 font-bold'
+                            : 'text-stone-600 hover:text-cyan-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {speakingMessageId === msg.id ? (
+                          <>
+                            <VolumeX className="h-3.5 w-3.5 text-rose-600" />
+                            <span>Stop Speaking</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="h-3.5 w-3.5 text-cyan-600" />
+                            <span>Listen Live Audio</span>
+                          </>
+                        )}
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleCopyText(msg.text, msg.id)}
                         className="text-[11px] font-semibold text-stone-500 hover:text-teal-700 flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         {copiedCodeId === msg.id ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                        {copiedCodeId === msg.id ? 'Copied to Clipboard' : 'Copy Answer'}
+                        {copiedCodeId === msg.id ? 'Copied' : 'Copy'}
                       </button>
                     </div>
                   )}
@@ -848,9 +1138,9 @@ export function StudyPage({ id }: StudyPageProps) {
             ))}
 
             {chatLoading && (
-              <div className="flex items-center gap-3 text-teal-800 font-semibold text-xs py-2 animate-pulse">
-                <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
-                Gemini AI is analyzing syllabus &amp; generating your custom answer...
+              <div className="flex items-center gap-3 text-cyan-800 font-semibold text-xs py-2 animate-pulse">
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-700" />
+                Gemini AI is analyzing your exact request &amp; responding dynamically...
               </div>
             )}
 
@@ -863,7 +1153,7 @@ export function StudyPage({ id }: StudyPageProps) {
             <div ref={chatMessagesEndRef} />
           </div>
 
-          {/* Chat Input Bar */}
+          {/* Chat Input Bar with Live Speech-to-Text Mic */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -871,11 +1161,31 @@ export function StudyPage({ id }: StudyPageProps) {
             }}
             className="flex items-center gap-2"
           >
+            {/* Real-time Voice Input Mic Button */}
+            <button
+              type="button"
+              onClick={toggleListening}
+              title={voiceState === 'listening' ? 'Click to stop listening' : 'Click to speak your question'}
+              className={`p-3 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm ${
+                voiceState === 'listening'
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-4 ring-rose-200'
+                  : 'bg-gradient-to-tr from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white'
+              }`}
+            >
+              {voiceState === 'listening' ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
+
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder={language === 'ta' ? 'கேள்வி அல்லது தலைப்பை தட்டச்சு செய்து கேட்கவும் (எ.கா: Circular Linked List நிரல் தருக)...' : 'Type topic or request (e.g. Write a 12-mark answer for Stacks vs Queues with code)...'}
+              placeholder={
+                voiceState === 'listening'
+                  ? '🎙️ Listening to your voice... Speak now...'
+                  : language === 'ta'
+                  ? 'கேள்வி அல்லது வரைபடம் கேளுங்கள் (எ.கா: Exception Handling எளிய விளக்கம் & நிரல் தருக)...'
+                  : 'Ask any question or diagram (e.g. Exception handling simple definition and code)...'
+              }
               className="input flex-1 text-xs sm:text-sm py-3"
               disabled={chatLoading}
             />
