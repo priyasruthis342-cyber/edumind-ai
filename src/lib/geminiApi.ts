@@ -43,7 +43,8 @@ export interface GeminiExamQAResponse {
   questions_1mark?: QuestionSimple[];
   questions_2mark: QuestionSimple[];
   questions_3mark: QuestionSimple[];
-  questions_5mark: QuestionSimple[];
+  questions_5mark?: QuestionSimple[];
+  questions_8mark?: QuestionSimple[];
   questions_12mark: Question12Mark[];
 }
 
@@ -92,6 +93,10 @@ export async function fetchGeminiExamQA(
   const data: GeminiExamQAResponse = await response.json();
   if (!data.success) {
     throw new Error('Gemini AI service returned an unsuccessful response.');
+  }
+
+  if (!data.questions_8mark) {
+    data.questions_8mark = data.questions_5mark || [];
   }
 
   return data;

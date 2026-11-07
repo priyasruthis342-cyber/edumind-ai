@@ -2,26 +2,26 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Sparkles, Star, CheckCircle2, XCircle,
   BookOpen, Award, Eye, EyeOff, Loader2, AlertTriangle,
-  Layers, FileText, Check, Globe, Volume2, VolumeX,
+  Layers, FileText, Check, Globe, Volume2,
   Send, Bot, User, Copy, Code, Mic, MicOff,
-  Terminal, Calculator, Radio, Image as ImageIcon
+  Terminal, Calculator, HelpCircle
 } from 'lucide-react';
 import { getScan, setActiveSyllabus } from '@/lib/data';
 import { fetchGroqStudyData, type GroqAIResponse } from '@/lib/groqApi';
 import {
   fetchGeminiExamQA,
   fetchGeminiChat,
-  type GeminiExamQAResponse
+  type GeminiExamQAResponse,
+  type QuestionSimple,
+  type Question12Mark
 } from '@/lib/geminiApi';
 import type { Scan } from '@/types';
-import { LiveVoiceOrb, type VoiceAssistantState } from '@/components/study/LiveVoiceOrb';
-import { findVoice } from '@/lib/speech';
 
 interface StudyPageProps {
   id: string;
 }
 
-type MarkFilter = 'all' | '2' | '3' | '5' | '12';
+type MarkFilter = 'all' | 'important' | '2' | '3' | '8' | '12';
 
 interface ChatMessage {
   id: string;
@@ -51,7 +51,7 @@ function renderInlineMarkup(rawText: string) {
   });
 }
 
-function renderFormattedChatMessage(text: string, activeSpokenText: string = '', isCurrentlySpeaking: boolean = false) {
+function renderFormattedChatMessage(text: string) {
   const parts = text.split(/(```[\s\S]*?```)/g);
   return (
     <div className="space-y-2.5 font-sans">
@@ -63,20 +63,19 @@ function renderFormattedChatMessage(text: string, activeSpokenText: string = '',
           const lang = hasLang ? firstLine.toLowerCase() : '';
           const codeContent = hasLang ? lines.slice(1).join('\n') : lines.join('\n');
 
-          // Render Mermaid Diagram or Visual Flowchart Card
           if (lang === 'mermaid' || codeContent.startsWith('graph ') || codeContent.startsWith('flowchart ')) {
             return (
-              <div key={pIdx} className="rounded-2xl border-2 border-cyan-500/40 bg-slate-950 p-4 my-3 text-cyan-200 shadow-xl">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-cyan-800/60">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-cyan-300 uppercase tracking-wider">
-                    <Layers className="h-4 w-4 text-cyan-400" />
-                    Visual Diagram / Flowchart Structure
+              <div key={pIdx} className="rounded-2xl border-2 border-cyan-500/40 bg-slate-950 p-3.5 my-2.5 text-cyan-200 shadow-lg">
+                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-cyan-800/60">
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300 uppercase tracking-wider">
+                    <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                    Visual Diagram / Flowchart
                   </span>
-                  <span className="text-[10px] text-cyan-400/80 font-mono bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                  <span className="text-[9px] text-cyan-400/80 font-mono bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800">
                     Diagram
                   </span>
                 </div>
-                <pre className="text-cyan-100 font-mono text-xs whitespace-pre leading-relaxed bg-slate-900/90 p-3 rounded-xl border border-cyan-900/60 overflow-x-auto">
+                <pre className="text-cyan-100 font-mono text-[11px] whitespace-pre leading-relaxed bg-slate-900/90 p-2.5 rounded-xl border border-cyan-900/60 overflow-x-auto">
                   {codeContent}
                 </pre>
               </div>
@@ -103,35 +102,30 @@ function renderFormattedChatMessage(text: string, activeSpokenText: string = '',
               const trimmed = line.trim();
               if (!trimmed) return <div key={lIdx} className="h-1" />;
 
-              // Highlight line if matching active speech
-              const isSpokenLine = isCurrentlySpeaking && activeSpokenText && trimmed.length > 5 && (
-                activeSpokenText.includes(trimmed.slice(0, 30)) || trimmed.includes(activeSpokenText.slice(0, 30))
-              );
-
               if (trimmed.startsWith('### ')) {
                 return (
-                  <h4 key={lIdx} className={`font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100 ${isSpokenLine ? 'text-cyan-700 bg-cyan-50/70 px-1 rounded' : ''}`}>
+                  <h4 key={lIdx} className="font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100">
                     {renderInlineMarkup(trimmed.replace(/^###\s*/, ''))}
                   </h4>
                 );
               }
               if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
                 return (
-                  <h3 key={lIdx} className={`font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200 ${isSpokenLine ? 'text-cyan-700 bg-cyan-50/70 px-1 rounded' : ''}`}>
+                  <h3 key={lIdx} className="font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200">
                     {renderInlineMarkup(trimmed.replace(/^#+\s*/, ''))}
                   </h3>
                 );
               }
               if (trimmed.startsWith('> ')) {
                 return (
-                  <div key={lIdx} className={`border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed ${isSpokenLine ? 'ring-2 ring-cyan-400 bg-cyan-50' : ''}`}>
+                  <div key={lIdx} className="border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed">
                     {renderInlineMarkup(trimmed.replace(/^>\s*/, ''))}
                   </div>
                 );
               }
               if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
                 return (
-                  <div key={lIdx} className={`flex items-start gap-1.5 text-xs text-stone-700 pl-2 ${isSpokenLine ? 'bg-cyan-50/80 rounded px-1 text-cyan-900 font-medium' : ''}`}>
+                  <div key={lIdx} className="flex items-start gap-1.5 text-xs text-stone-700 pl-2">
                     <span className="text-teal-600 font-bold">•</span>
                     <span>{renderInlineMarkup(trimmed.replace(/^[-*]\s*/, ''))}</span>
                   </div>
@@ -139,7 +133,7 @@ function renderFormattedChatMessage(text: string, activeSpokenText: string = '',
               }
 
               return (
-                <p key={lIdx} className={`text-xs text-stone-800 leading-relaxed font-normal ${isSpokenLine ? 'bg-cyan-50 rounded px-1 text-cyan-950 font-medium ring-1 ring-cyan-200' : ''}`}>
+                <p key={lIdx} className="text-xs text-stone-800 leading-relaxed font-normal">
                   {renderInlineMarkup(line)}
                 </p>
               );
@@ -164,21 +158,22 @@ export function StudyPage({ id }: StudyPageProps) {
   // ── Groq AI Data (Practice Quiz Engine) ───────────────────────
   const [groqData, setGroqData] = useState<GroqAIResponse | null>(null);
 
-  // ── UI Filters & Controls ─────────────────────────────────────
-  const [selectedMark, setSelectedMark] = useState<MarkFilter>('all');
+  // ── UI Filters & On-Demand Answer Visibility ──────────────────
+  const [selectedMark, setSelectedMark] = useState<MarkFilter>('important');
   const [language, setLanguage] = useState<'en' | 'ta'>('en');
+  const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
 
   // Quiz states
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [submittedQuiz, setSubmittedQuiz] = useState(false);
 
-  // ── Gemini AI Interactive Chat Assistant State ──────────────
+  // ── Gemini AI Sidebar Chat Assistant State ────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
       sender: 'gemini',
-      text: 'Hello! I am your EduMind Gemini AI Live Study Assistant. Ask me for custom definitions, full code/programs, or complete Anna University 12-mark essay answers for any topic in this syllabus!',
+      text: 'Hello! I am your EduMind AI Study Assistant. Ask me for custom definitions, 8-mark explanations, 12-mark essay breakdowns, clean code with output, or diagrams!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
   ]);
@@ -187,6 +182,82 @@ export function StudyPage({ id }: StudyPageProps) {
   const [chatError, setChatError] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Simple Voice Input (Microphone) ───────────────────────────
+  const [isListening, setIsListening] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  const startListening = () => {
+    if (typeof window === 'undefined') return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert('Speech recognition is supported in Chrome, Edge, and Safari browsers. You can type your question in the input box.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const text = final || interim;
+        setChatInput(text);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (err: any) => {
+        console.warn('Speech recognition error:', err);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.warn('Speech recognition start failed:', err);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   const scrollToBottom = () => {
     chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,188 +273,27 @@ export function StudyPage({ id }: StudyPageProps) {
     setTimeout(() => setCopiedCodeId(null), 2500);
   };
 
-  // ── Live Voice Assistant (STT & TTS Synchronized Integration) ──
-  const [isLiveVoiceActive, setIsLiveVoiceActive] = useState<boolean>(true);
-  const [voiceState, setVoiceState] = useState<VoiceAssistantState>('idle');
-  const [liveTranscript, setLiveTranscript] = useState<string>('');
-  const [activeSpokenText, setActiveSpokenText] = useState<string>('');
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
-  const speechChunksRef = useRef<string[]>([]);
-  const speechIndexRef = useRef<number>(0);
-
-  const stopSpeaking = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setSpeakingMessageId(null);
-    setActiveSpokenText('');
-    setVoiceState((prev) => (prev === 'speaking' ? 'idle' : prev));
-  }, []);
-
-  const speakMessageSynchronized = useCallback((text: string, msgId: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-    const synth = window.speechSynthesis;
-    synth.cancel();
-
-    // Toggle off if already speaking this message
-    if (speakingMessageId === msgId) {
-      stopSpeaking();
-      return;
-    }
-
-    // Strip code blocks and markdown symbols for natural audio speech
-    const cleanNarration = text
-      .replace(/```[\s\S]*?```/g, ' [Code details provided below] ')
-      .replace(/[#*`>]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const sentences = cleanNarration
-      .split(/(?<=[.!?\n])\s+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 2);
-
-    if (!sentences.length) return;
-
-    setSpeakingMessageId(msgId);
-    setVoiceState('speaking');
-    speechChunksRef.current = sentences;
-    speechIndexRef.current = 0;
-
-    const speechTag = language === 'ta' ? 'ta-IN' : 'en-US';
-    const voice = findVoice(speechTag);
-
-    const speakNext = () => {
-      const idx = speechIndexRef.current;
-      if (idx >= speechChunksRef.current.length) {
-        setSpeakingMessageId(null);
-        setActiveSpokenText('');
-        setVoiceState('idle');
-        return;
-      }
-
-      const sentence = speechChunksRef.current[idx];
-      setActiveSpokenText(sentence);
-
-      const utterance = new SpeechSynthesisUtterance(sentence);
-      if (voice) {
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-      }
-      utterance.rate = 0.92;
-      utterance.pitch = 1.05;
-
-      utterance.onend = () => {
-        speechIndexRef.current += 1;
-        speakNext();
-      };
-
-      utterance.onerror = () => {
-        setSpeakingMessageId(null);
-        setActiveSpokenText('');
-        setVoiceState('idle');
-      };
-
-      synth.speak(utterance);
-    };
-
-    speakNext();
-  }, [language, speakingMessageId, stopSpeaking]);
-
-  const startListening = () => {
-    if (typeof window === 'undefined') return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      alert('Speech recognition is supported in Chrome, Edge, and Safari browsers. Please type your query in the input box.');
-      return;
-    }
-
-    stopSpeaking();
-
-    try {
-      const recognition = new SpeechRec();
-      recognitionRef.current = recognition;
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
-
-      recognition.onstart = () => {
-        setVoiceState('listening');
-        setLiveTranscript('');
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        let interim = '';
-        let final = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        const currentText = final || interim;
-        setLiveTranscript(currentText);
-        setChatInput(currentText);
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onerror = (err: any) => {
-        console.warn('Speech recognition error:', err);
-        setVoiceState('idle');
-      };
-
-      recognition.onend = () => {
-        setVoiceState('idle');
-        if (liveTranscript.trim()) {
-          const query = liveTranscript.trim();
-          setLiveTranscript('');
-          void handleSendChat(query, true);
-        }
-      };
-
-      recognition.start();
-    } catch (err) {
-      console.warn('Failed to start speech recognition:', err);
-      setVoiceState('idle');
-    }
+  const toggleAnswer = (key: string) => {
+    setExpandedAnswers((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-    setVoiceState('idle');
-    if (liveTranscript.trim()) {
-      const query = liveTranscript.trim();
-      setLiveTranscript('');
-      void handleSendChat(query, true);
-    }
+  const expandAll = () => {
+    const allKeys: Record<string, boolean> = {};
+    geminiData?.questions_2mark?.forEach((q) => { allKeys[`2_${q.id}`] = true; });
+    geminiData?.questions_3mark?.forEach((q) => { allKeys[`3_${q.id}`] = true; });
+    const q8List = geminiData?.questions_8mark || geminiData?.questions_5mark || [];
+    q8List.forEach((q) => { allKeys[`8_${q.id}`] = true; });
+    geminiData?.questions_12mark?.forEach((q) => { allKeys[`12_${q.id}`] = true; });
+    setExpandedAnswers(allKeys);
   };
 
-  const toggleListening = () => {
-    if (voiceState === 'listening') {
-      stopListening();
-    } else {
-      startListening();
-    }
+  const collapseAll = () => {
+    setExpandedAnswers({});
   };
 
-  const handleSendChat = async (customQuery?: string, autoSpeak: boolean = false) => {
+  const handleSendChat = async (customQuery?: string) => {
     const queryToSend = (customQuery || chatInput).trim();
     if (!queryToSend || chatLoading) return;
-
-    stopSpeaking();
 
     const userMsg: ChatMessage = {
       id: 'user_' + Date.now(),
@@ -395,7 +305,6 @@ export function StudyPage({ id }: StudyPageProps) {
     setChatMessages((prev) => [...prev, userMsg]);
     setChatInput('');
     setChatLoading(true);
-    setVoiceState('thinking');
     setChatError(null);
 
     try {
@@ -412,17 +321,9 @@ export function StudyPage({ id }: StudyPageProps) {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, geminiMsg]);
-
-      // If user invoked via voice or voice assistant is active, auto-speak synchronized response!
-      if (autoSpeak || isLiveVoiceActive) {
-        speakMessageSynchronized(aiReply, newMsgId);
-      } else {
-        setVoiceState('idle');
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not reach Gemini AI.';
       setChatError(msg);
-      setVoiceState('idle');
     } finally {
       setChatLoading(false);
     }
@@ -456,61 +357,86 @@ export function StudyPage({ id }: StudyPageProps) {
     setAiLoading(true);
     setAiError(null);
     try {
-      // 1. Fetch Gemini Exam Q&A (1, 2, 5, 12 marks in selected language)
       const geminiResult = await fetchGeminiExamQA(text, lang);
       setGeminiData(geminiResult);
 
-      // 2. Fetch Groq AI quiz in background if not already loaded
-      if (!groqData) {
-        fetchGroqStudyData(text)
-          .then((res) => setGroqData(res))
-          .catch((err) => console.warn('Groq background quiz load:', err.message));
-      }
-
-      setQuizAnswers({});
-      setSubmittedQuiz(false);
+      const groqResult = await fetchGroqStudyData(text);
+      setGroqData(groqResult);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch AI exam questions.';
+      console.warn('AI Loading warning:', err);
+      const msg = err instanceof Error ? err.message : 'AI could not process this document.';
       setAiError(msg);
-      console.error('Gemini Exam Q&A fetch error:', err);
     } finally {
       setAiLoading(false);
     }
-  }, [groqData]);
+  }, []);
 
   useEffect(() => {
-    if (!scan?.raw_text) return;
-    void loadExamContent(scan.raw_text, language);
+    if (scan && scan.raw_text) {
+      void loadExamContent(scan.raw_text, language);
+    }
   }, [scan, language, loadExamContent]);
 
-  // ── Quiz score evaluation ─────────────────────────────────────
-  const correctCount = groqData
-    ? Object.entries(quizAnswers).filter(([qIdx, optIdx]) => {
-        const q = groqData.quiz[Number(qIdx)];
-        if (!q) return false;
-        const correctIdx = q.answer.charCodeAt(0) - 65;
-        return optIdx === correctIdx;
-      }).length
-    : 0;
+  // ── Quiz Submission Handler ──────────────────────────────────
+  const handleSelectAnswer = (qIndex: number, optIndex: number) => {
+    if (submittedQuiz) return;
+    setQuizAnswers((prev) => ({ ...prev, [qIndex]: optIndex }));
+  };
+
+  const handleSubmitQuiz = () => {
+    setSubmittedQuiz(true);
+  };
+
+  const handleResetQuiz = () => {
+    setQuizAnswers({});
+    setSubmittedQuiz(false);
+  };
+
+  const calculateScore = () => {
+    if (!groqData?.quiz) return 0;
+    return groqData.quiz.reduce((score, item, idx) => {
+      const selected = quizAnswers[idx];
+      const correctIdx = ['A', 'B', 'C', 'D'].indexOf(item.answer);
+      return selected === correctIdx ? score + 1 : score;
+    }, 0);
+  };
 
   if (scanLoading) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3 text-stone-500">
-        <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
+      <div className="flex flex-col items-center justify-center py-24 text-stone-500 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
         <p className="text-sm font-medium">Loading your study material…</p>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-10 animate-fade-up pb-16">
+  const questions8List: QuestionSimple[] = geminiData?.questions_8mark || geminiData?.questions_5mark || [];
+  const questions2List: QuestionSimple[] = geminiData?.questions_2mark || [];
+  const questions3List: QuestionSimple[] = geminiData?.questions_3mark || [];
+  const questions12List: Question12Mark[] = geminiData?.questions_12mark || [];
 
-      {/* ── Header Banner ───────────────────────────────────── */}
+  // Curate Top Important Questions across 2, 3, 8, 12 marks
+  const importantQuestions = [
+    ...questions2List.slice(0, 2).map((q) => ({ ...q, markBadge: '2 Marks', markType: '2' as const })),
+    ...questions8List.slice(0, 2).map((q) => ({ ...q, markBadge: '8 Marks', markType: '8' as const })),
+    ...questions12List.slice(0, 2).map((q) => ({
+      id: q.id,
+      question: q.question,
+      answer: q.answer,
+      markBadge: '12 Marks',
+      markType: '12' as const
+    })),
+  ];
+
+  return (
+    <div className="space-y-8 animate-fade-up pb-16">
+
+      {/* ── Top Header Banner ───────────────────────────────────── */}
       <div className="rounded-3xl bg-gradient-to-r from-teal-700 via-indigo-800 to-purple-900 p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
           <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 w-fit text-xs font-bold text-amber-300 backdrop-blur-md">
             <Sparkles className="h-4 w-4" />
-            Gemini AI Exam Question Bank &amp; Study Assistant
+            University Syllabus Analysis &amp; Exam Master
           </div>
 
           <div className="flex items-center gap-3">
@@ -523,37 +449,37 @@ export function StudyPage({ id }: StudyPageProps) {
               {language === 'ta' ? 'குரல் பாடம்' : 'Audio Lesson'}
             </a>
 
-            {/* Bilingual Language Switcher (English / தமிழ்) */}
+            {/* Bilingual Language Switcher */}
             <div className="flex items-center gap-1 rounded-full bg-black/20 p-1 backdrop-blur-md border border-white/20">
-            <button
-              onClick={() => setLanguage('en')}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition-all flex items-center gap-1 ${
-                language === 'en'
-                  ? 'bg-amber-400 text-ink shadow-sm'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              English
-            </button>
-            <button
-              onClick={() => setLanguage('ta')}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition-all flex items-center gap-1 ${
-                language === 'ta'
-                  ? 'bg-amber-400 text-ink shadow-sm'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              <Globe className="h-3.5 w-3.5" /> தமிழ்
-            </button>
+              <button
+                onClick={() => setLanguage('en')}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all flex items-center gap-1 ${
+                  language === 'en'
+                    ? 'bg-amber-400 text-ink shadow-sm'
+                    : 'text-white/80 hover:text-white'
+                }`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => setLanguage('ta')}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all flex items-center gap-1 ${
+                  language === 'ta'
+                    ? 'bg-amber-400 text-ink shadow-sm'
+                    : 'text-white/80 hover:text-white'
+                }`}
+              >
+                <Globe className="h-3.5 w-3.5" /> தமிழ்
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
           {geminiData?.chapter_title || scan?.chapter_title || scan?.file_name || 'Chapter Study & Important Questions'}
         </h1>
         <p className="mt-2 text-sm text-teal-100">
-          Complete syllabus analysis: 2-mark, 3-mark, 5-mark, and 12-mark university exam questions with detailed answers directly below.
+          In-depth syllabus breakdown: curated Important Questions, 2-mark definitions, 8-mark structured analysis, and 12-mark university essays.
         </p>
 
         {geminiData?.summary && (
@@ -564,762 +490,901 @@ export function StudyPage({ id }: StudyPageProps) {
         )}
       </div>
 
-      {/* ── AI Loading State ────────────────────────────────── */}
-      {aiLoading && (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-teal-300 bg-teal-50 py-16">
-          <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
-          <div className="text-center">
-            <p className="font-bold text-teal-800">
-              {language === 'ta'
-                ? 'கூகிள் ஜெமினி AI உங்கள் PDF பாடத்திட்டத்தை பகுப்பாய்வு செய்கிறது…'
-                : 'Google Gemini AI is analyzing your PDF syllabus & notes…'}
-            </p>
-            <p className="text-xs text-teal-600 mt-1">
-              {language === 'ta'
-                ? '2, 3, 5 மற்றும் 12 மதிப்பெண் வினா-விடைகள் உருவாக்கப்படுகின்றன...'
-                : 'Generating 2-mark, 3-mark, 5-mark, and 12-mark university-style answers — please wait.'}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* ── Main Workspace Grid (Left: Questions & Quiz | Right: Sticky Sidebar AI Chat) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-      {/* ── Error Notification ──────────────────────────────── */}
-      {aiError && !aiLoading && (
-        <div className="flex items-start gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 p-5 text-sm text-rose-900">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-          <div>
-            <p className="font-bold">Could not load AI exam content</p>
-            <p className="mt-1 text-xs">{aiError}</p>
-            <p className="mt-2 text-xs text-rose-700">
-              Make sure your backend server is running: <code className="rounded bg-rose-100 px-1 py-0.5">node server.js</code>
-            </p>
-          </div>
-        </div>
-      )}
+        {/* ═════════════════════════════════════════════════════════ */}
+        {/* LEFT COLUMN: Question Bank & Important Questions (8 cols) */}
+        {/* ═════════════════════════════════════════════════════════ */}
+        <div className="lg:col-span-8 space-y-8">
 
-      {/* ── Main Exam Questions Section (Organized by Marks) ─── */}
-      {geminiData && !aiLoading && (
-        <section className="space-y-6">
-
-          {/* Mark Filter Pill Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200 pb-4">
-            <div>
-              <h2 className="text-xl font-bold text-ink flex items-center gap-2">
-                <Award className="h-6 w-6 text-amber-500" />
-                {language === 'ta' ? 'தேர்வு வினா-விடை வங்கி' : 'University Exam Question Bank'}
-              </h2>
-              <p className="text-xs text-stone-500 mt-0.5">
-                {language === 'ta'
-                  ? 'கேள்விகள் மதிப்பெண் வாரியாக பிரிக்கப்பட்டுள்ளன. விடைகள் நேரடியாக கீழே கொடுக்கப்பட்டுள்ளன.'
-                  : 'Questions organized by marks. Every question has its detailed answer directly below.'}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setSelectedMark('all')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border ${
-                  selectedMark === 'all'
-                    ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
-                    : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
-                }`}
-              >
-                🌟 {language === 'ta' ? 'அனைத்தும்' : 'All Questions'}
-              </button>
-              <button
-                onClick={() => setSelectedMark('2')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border ${
-                  selectedMark === '2'
-                    ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
-                    : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
-                }`}
-              >
-                2 Marks ({geminiData.questions_2mark.length})
-              </button>
-              <button
-                onClick={() => setSelectedMark('3')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border ${
-                  selectedMark === '3'
-                    ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
-                    : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
-                }`}
-              >
-                3 Marks ({geminiData.questions_3mark?.length || 0})
-              </button>
-              <button
-                onClick={() => setSelectedMark('5')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border ${
-                  selectedMark === '5'
-                    ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
-                    : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
-                }`}
-              >
-                5 Marks ({geminiData.questions_5mark.length})
-              </button>
-              <button
-                onClick={() => setSelectedMark('12')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border ${
-                  selectedMark === '12'
-                    ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
-                    : 'bg-amber-50 border-amber-200 text-amber-900 hover:border-amber-400'
-                }`}
-              >
-                ⭐ 12 Marks ({geminiData.questions_12mark.length})
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-8">
-
-            {/* ── 2-MARK QUESTIONS ───────────────────────────── */}
-            {(selectedMark === 'all' || selectedMark === '2') && geminiData.questions_2mark.length > 0 && (
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-800">
-                    PART A • 2 MARKS
-                  </span>
-                  <h3 className="text-base font-bold text-ink">
-                    {language === 'ta' ? '2-மதிப்பெண் குறுவினாக்கள் (வரையறை / சூத்திரம்)' : 'Short 2-Mark Questions (Definitions & Principles)'}
-                  </h3>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {geminiData.questions_2mark.map((q) => (
-                    <div key={q.id} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-teal-700 uppercase">Q.{q.id} • 2 Marks</span>
-                        <span className="flex items-center gap-0.5 text-amber-500">
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold text-ink">{q.question}</p>
-                      <div className="rounded-xl bg-stone-50 border border-stone-200 p-3.5 text-xs leading-relaxed text-stone-800 font-medium">
-                        <span className="font-bold text-teal-900">{language === 'ta' ? 'விடைக்குறிப்பு:' : 'Crisp Answer:'} </span>
-                        {q.answer}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 3-MARK QUESTIONS ───────────────────────────── */}
-            {(selectedMark === 'all' || selectedMark === '3') && (geminiData.questions_3mark?.length ?? 0) > 0 && (
-              <div className="space-y-4 pt-4">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-800">
-                    PART B • 3 MARKS
-                  </span>
-                  <h3 className="text-base font-bold text-ink">
-                    {language === 'ta' ? '3-மதிப்பெண் சிறுவினாக்கள் (பண்புகள் & முக்கியக் கூறுகள்)' : '3-Mark Conceptual Questions (Key Points & Features)'}
-                  </h3>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {geminiData.questions_3mark.map((q) => (
-                    <div key={q.id} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-teal-700 uppercase">Q.{q.id} • 3 Marks</span>
-                        <span className="flex items-center gap-0.5 text-amber-500">
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold text-ink">{q.question}</p>
-                      <div className="rounded-xl bg-teal-50/60 border border-teal-200 p-3.5 text-xs leading-relaxed text-stone-800 font-medium">
-                        <span className="font-bold text-teal-900">{language === 'ta' ? 'விடைக்குறிப்பு:' : 'Core Explanation:'} </span>
-                        {q.answer}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 5-MARK QUESTIONS ───────────────────────────── */}
-            {(selectedMark === 'all' || selectedMark === '5') && geminiData.questions_5mark.length > 0 && (
-              <div className="space-y-4 pt-4">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-900">
-                    PART B • 5 MARKS
-                  </span>
-                  <h3 className="text-base font-bold text-ink">
-                    {language === 'ta' ? '5-மதிப்பெண் வினாக்கள் (கட்டமைப்பு விளக்கங்கள்)' : 'Structured 5-Mark Analytical Questions'}
-                  </h3>
-                </div>
-
-                <div className="grid gap-5">
-                  {geminiData.questions_5mark.map((q) => (
-                    <div key={q.id} className="rounded-2xl border-2 border-indigo-200/60 bg-white p-6 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">
-                          Q.{q.id} • 5 Marks Structured Answer
-                        </span>
-                        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-                          ⭐ High Priority
-                        </span>
-                      </div>
-                      <h4 className="text-base font-bold text-ink">{q.question}</h4>
-                      <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 text-xs sm:text-sm leading-relaxed text-stone-800 space-y-2">
-                        <p className="font-bold text-indigo-950">
-                          {language === 'ta' ? 'தேர்வு விடை கட்டமைப்பு:' : 'Structured Answer Format:'}
-                        </p>
-                        <p className="whitespace-pre-line font-medium text-stone-700">{q.answer}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 12-MARK COMPREHENSIVE UNIVERSITY ESSAY QUESTIONS ── */}
-            {(selectedMark === 'all' || selectedMark === '12') && geminiData.questions_12mark.length > 0 && (
-              <div className="space-y-6 pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
-                      PART C • 12 MARKS
-                    </span>
-                    <h3 className="text-lg font-extrabold text-ink">
-                      {language === 'ta' ? '12-மதிப்பெண் விரிவான பல்கலைக்கழக வினா-விடை' : 'Comprehensive University 12-Mark Essay Questions'}
-                    </h3>
-                  </div>
-                  <span className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
-                    ⭐ 12/12 Full Marks Format
-                  </span>
-                </div>
-
-                <div className="space-y-6">
-                  {geminiData.questions_12mark.map((q) => (
-                    <div
-                      key={q.id}
-                      className="rounded-3xl border-2 border-teal-500/40 bg-white p-6 sm:p-8 shadow-md space-y-6"
-                    >
-                      {/* Question Header */}
-                      <div className="border-b border-stone-100 pb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-extrabold uppercase tracking-wide text-teal-700">
-                            Question {q.id} • 12 Marks
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">
-                            <Star className="h-4 w-4 fill-amber-400" /> Star Verified Exam Question
-                          </span>
-                        </div>
-                        <h4 className="text-lg sm:text-xl font-extrabold text-ink leading-snug">
-                          {q.question}
-                        </h4>
-                      </div>
-
-                      {/* Detailed 12-Mark University Structure Directly Below */}
-                      <div className="space-y-4 text-sm">
-
-                        {/* 1. Introduction & Core Definition */}
-                        {q.answer?.introduction && (
-                          <div className="rounded-2xl bg-teal-50/80 border border-teal-200 p-4 space-y-2">
-                            <p className="text-xs font-bold uppercase tracking-wider text-teal-900 flex items-center gap-1.5">
-                              <BookOpen className="h-4 w-4 text-teal-700" />
-                              1. {language === 'ta' ? 'முன்னுரை & அடிப்படைக் கோட்பாடு (Introduction & Core Definition)' : 'Introduction & Core Definition'}
-                            </p>
-                            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1 border-l-2 border-teal-600 pl-3">
-                              {q.answer.introduction}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 2. Architectural Scope & Types/Categories (with definition for each type) */}
-                        {(q.answer?.architecture_types || (q.answer?.headings && q.answer.headings.length > 0)) && (
-                          <div className="rounded-2xl bg-indigo-50/60 border border-indigo-200 p-4 space-y-2">
-                            <p className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
-                              <Layers className="h-4 w-4 text-indigo-700" />
-                              2. {language === 'ta' ? 'கட்டமைப்பு & வகைகள் / பிரிவுகள் (Architectural Scope & Types/Categories)' : 'Architectural Scope & Types/Categories (with definitions for each type)'}
-                            </p>
-                            {q.answer?.architecture_types ? (
-                              <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
-                                {q.answer.architecture_types}
-                              </div>
-                            ) : (
-                              <div className="grid gap-2.5 pt-1">
-                                {q.answer.headings?.map((h, hIdx) => (
-                                  <div key={hIdx} className="rounded-xl border border-stone-200 bg-white/90 p-3 space-y-1">
-                                    <h5 className="font-bold text-ink text-xs sm:text-base flex items-center gap-2">
-                                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-700 text-[11px] font-bold text-white">
-                                        {hIdx + 1}
-                                      </span>
-                                      {h.title}
-                                    </h5>
-                                    <p className="text-xs text-stone-700 leading-relaxed font-normal whitespace-pre-line pl-7">
-                                      {h.content}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* 3. Concrete Example & Real-world Relevance */}
-                        {(q.answer?.concrete_example || q.answer?.examples) && (
-                          <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 space-y-2">
-                            <p className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                              <Sparkles className="h-4 w-4 text-amber-700" />
-                              3. {language === 'ta' ? 'நிஜ உலக உதாரணம் & நடைமுறை பயன்பாடுகள் (Concrete Example & Real-World Relevance)' : 'Concrete Example & Real-world Relevance'}
-                            </p>
-                            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
-                              {q.answer.concrete_example || q.answer.examples}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 4. Full Clean Programming Code (C++/Java/Python) */}
-                        {q.answer?.program_code && (
-                          <div className="rounded-2xl bg-stone-900 border border-stone-800 p-4 space-y-2 text-stone-100 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
-                                <Code className="h-4 w-4 text-teal-400" />
-                                4. {language === 'ta' ? 'முழுமையான நிரல் முறை (Full Clean Programming Code)' : 'Full Clean Programming Code (C++/Java/Python)'}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyText(q.answer.program_code!, `code_${q.id}`)}
-                                className="text-[11px] font-semibold text-stone-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
-                              >
-                                {copiedCodeId === `code_${q.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                                {copiedCodeId === `code_${q.id}` ? 'Copied' : 'Copy Code'}
-                              </button>
-                            </div>
-                            <pre className="font-mono text-xs overflow-x-auto p-3 bg-black/40 rounded-xl text-emerald-300 leading-relaxed whitespace-pre">
-                              {q.answer.program_code}
-                            </pre>
-                          </div>
-                        )}
-
-                        {/* 5. Exact Program Output */}
-                        {q.answer?.program_output && (
-                          <div className="rounded-2xl bg-stone-950 border border-stone-800 p-4 space-y-2 shadow-inner">
-                            <p className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-                              <Terminal className="h-4 w-4 text-emerald-400" />
-                              5. {language === 'ta' ? 'நிரல் வெளியீடு (Exact Program Output)' : 'Exact Program Output'}
-                            </p>
-                            <div className="font-mono text-xs text-stone-200 bg-stone-900/90 rounded-xl p-3 border border-stone-800 whitespace-pre leading-relaxed overflow-x-auto">
-                              <span className="text-emerald-500 font-bold">$ </span>{q.answer.program_output}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 6. Numerical/Example Problem & Worked-out Solution (if applicable to topic) */}
-                        {q.answer?.numerical_problem && (
-                          <div className="rounded-2xl bg-purple-50/70 border border-purple-200 p-4 space-y-2">
-                            <p className="text-xs font-bold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
-                              <Calculator className="h-4 w-4 text-purple-700" />
-                              6. {language === 'ta' ? 'கணித மாதிரி வினா & முழுமையான தீர்வு (Numerical / Example Problem & Solution)' : 'Numerical/Example Problem & Worked-out Solution'}
-                            </p>
-                            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
-                              {q.answer.numerical_problem}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 7. Advantages, Disadvantages & Time/Space Complexity */}
-                        {(q.answer?.tradeoffs_complexity || q.answer?.conclusion) && (
-                          <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-4 space-y-2">
-                            <p className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                              7. {language === 'ta' ? 'நன்மைகள், வரம்புகள் & கால/நினைவக சிக்கல்தன்மை (Advantages, Disadvantages & Complexity)' : 'Advantages, Disadvantages & Time/Space Complexity'}
-                            </p>
-                            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
-                              {q.answer.tradeoffs_complexity || q.answer.conclusion}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="pt-2 text-xs text-stone-500 flex items-center gap-1.5">
-                          💡 <span>Tip: Draw diagrams and present sub-headings in boxes during your university exam for full 12/12 marks.</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </div>
-        </section>
-      )}
-
-      {/* ── Interactive Gemini AI Live Study Assistant & Live Voice Orb ── */}
-      <section className="space-y-4 pt-2">
-        <div className="rounded-3xl border-2 border-indigo-200 bg-white p-6 sm:p-8 shadow-xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 text-white shadow-lg">
-                <Sparkles className="h-6 w-6 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-extrabold text-ink">
-                    {language === 'ta' ? 'ஜெமினி AI நேரலை கல்வி உதவியாளர்' : 'Gemini AI Live Study Assistant'}
-                  </h3>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                    Live Voice AI
-                  </span>
-                </div>
-                <p className="text-xs text-stone-500 mt-0.5">
+          {/* AI Loading State */}
+          {aiLoading && (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-teal-300 bg-teal-50 py-16">
+              <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
+              <div className="text-center">
+                <p className="font-bold text-teal-800">
                   {language === 'ta'
-                    ? 'இயல்பான பேச்சு, வரைபடங்கள் (Diagrams), எளிய விளக்கங்கள் & நேரலை குரல் உரையாடல்.'
-                    : 'Natural conversations, visual diagrams, simple explanations & live voice tutor.'}
+                    ? 'AI உங்கள் PDF பாடத்திட்டத்தை பகுப்பாய்வு செய்கிறது…'
+                    : 'EduMind AI is analyzing your uploaded syllabus & notes…'}
+                </p>
+                <p className="text-xs text-teal-600 mt-1">
+                  Deriving Important Questions, 2-mark, 3-mark, 8-mark, and 12-mark answers.
                 </p>
               </div>
             </div>
+          )}
 
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsLiveVoiceActive(!isLiveVoiceActive)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
-                  isLiveVoiceActive
-                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-cyan-500/20'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-300'
-                }`}
-              >
-                <Radio className={`h-3.5 w-3.5 ${isLiveVoiceActive ? 'animate-pulse text-cyan-200' : 'text-stone-500'}`} />
-                <span>{isLiveVoiceActive ? 'Voice Orb: Active' : 'Enable Voice Orb'}</span>
-              </button>
-
-              <div className="text-xs text-stone-500 font-medium hidden sm:block">
-                Syllabus: <strong className="text-teal-800">{geminiData?.chapter_title || scan?.chapter_title || 'Active Material'}</strong>
+          {/* Error Notification */}
+          {aiError && !aiLoading && (
+            <div className="flex items-start gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 p-5 text-sm text-rose-900">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+              <div>
+                <p className="font-bold">Could not load AI exam content</p>
+                <p className="mt-1 text-xs">{aiError}</p>
               </div>
-            </div>
-          </div>
-
-          {/* ── Glowing Blue Orb Visualizer (Live Voice Assistant) ── */}
-          {isLiveVoiceActive && (
-            <div className="mb-2">
-              <LiveVoiceOrb
-                state={voiceState}
-                language={language}
-                liveTranscript={liveTranscript}
-                activeSpokenText={activeSpokenText}
-                onToggleListening={toggleListening}
-                onStopSpeaking={stopSpeaking}
-                onClose={() => setIsLiveVoiceActive(false)}
-              />
             </div>
           )}
 
-          {/* Quick Prompt Suggestion Pills */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Draw a clean visual flowchart / architectural diagram with clear stages and component breakdown for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-cyan-300 bg-cyan-50/80 hover:bg-cyan-100 px-3 py-1.5 text-xs font-semibold text-cyan-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <ImageIcon className="h-3.5 w-3.5 text-cyan-700" />
-              🎨 Draw Diagram / Flowchart
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Explain in simple English words: give me the definition, key types with definitions, a real-world example, and clean code with output for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
-              💡 Simple Explanation &amp; Types
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Provide complete clean compilable programming code with comments, exact terminal execution output, and time complexity for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-teal-200 bg-teal-50/70 hover:bg-teal-100 px-3 py-1.5 text-xs font-semibold text-teal-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Code className="h-3.5 w-3.5 text-teal-600" />
-              💻 Code &amp; Program Output
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Give a point-by-point tabular comparison highlighting key differences and trade-offs for topics in: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-stone-300 bg-stone-100 hover:bg-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-800 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Layers className="h-3.5 w-3.5 text-stone-600" />
-              ⚡ Tabular Comparison
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam answer for "${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}" strictly structured with all 7 sections: 1. Introduction & Core Definition, 2. Architectural Scope & Types/Categories, 3. Concrete Example & Real-world Relevance, 4. Full Clean Programming Code, 5. Exact Program Output, 6. Numerical/Example Problem & Worked-out Solution, and 7. Advantages, Disadvantages & Time/Space Complexity.`)}
-              disabled={chatLoading}
-              className="rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 px-3 py-1.5 text-xs font-semibold text-indigo-900 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <FileText className="h-3.5 w-3.5 text-indigo-600" />
-              📝 7-Part 12-Mark Exam Sheet
-            </button>
-          </div>
+          {/* ── Main Exam Questions Section (Organized by Marks) ─── */}
+          {geminiData && !aiLoading && (
+            <section className="space-y-6">
 
-          {/* Chat Messages Feed */}
-          <div className="space-y-4 max-h-[440px] overflow-y-auto pr-2 rounded-2xl bg-stone-50/70 p-4 border border-stone-200/80">
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.sender === 'gemini' && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-700 to-indigo-700 text-white shadow-xs text-xs font-bold mt-1">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                )}
+              {/* Filter Bar with Important Questions & Mark Tabs */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-ink flex items-center gap-2">
+                    <Award className="h-6 w-6 text-amber-500" />
+                    {language === 'ta' ? 'தேர்வு வினா வங்கி' : 'University Exam Question Bank'}
+                  </h2>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Click <strong>View Answer</strong> on any question to reveal answers on-demand.
+                  </p>
+                </div>
 
-                <div
-                  className={`max-w-[85%] rounded-2xl p-4 shadow-xs text-xs sm:text-sm leading-relaxed ${
-                    msg.sender === 'user'
-                      ? 'bg-gradient-to-r from-teal-700 to-indigo-700 text-white rounded-tr-xs'
-                      : 'bg-white border border-stone-200 text-stone-800 rounded-tl-xs'
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={expandAll}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-stone-600" />
+                    Expand All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={collapseAll}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
+                  >
+                    <EyeOff className="h-3.5 w-3.5 text-stone-600" />
+                    Collapse All
+                  </button>
+                </div>
+              </div>
+
+              {/* Navigation Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* 1. Important Questions Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('important')}
+                  className={`rounded-xl px-4 py-2 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                    selectedMark === 'important'
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-600 text-white shadow-amber-500/20'
+                      : 'bg-amber-50/80 border-amber-200 text-amber-900 hover:bg-amber-100'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-4 mb-1.5 pb-1 border-b border-black/5">
-                    <span className="font-bold text-[11px] opacity-75">
-                      {msg.sender === 'user' ? 'You' : 'Gemini AI Tutor'}
+                  <Star className="h-4 w-4 fill-current" />
+                  ⭐ {language === 'ta' ? 'முக்கிய வினாக்கள்' : 'Important Questions'}
+                </button>
+
+                {/* 2. All Questions */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('all')}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                    selectedMark === 'all'
+                      ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
+                      : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
+                  }`}
+                >
+                  All Questions
+                </button>
+
+                {/* 3. 2 Marks */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('2')}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                    selectedMark === '2'
+                      ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
+                      : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
+                  }`}
+                >
+                  2 Marks ({questions2List.length})
+                </button>
+
+                {/* 4. 3 Marks */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('3')}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                    selectedMark === '3'
+                      ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
+                      : 'bg-white border-stone-200 text-stone-700 hover:border-teal-400'
+                  }`}
+                >
+                  3 Marks ({questions3List.length})
+                </button>
+
+                {/* 5. 8 Marks */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('8')}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                    selectedMark === '8'
+                      ? 'bg-indigo-700 border-indigo-700 text-white shadow-sm'
+                      : 'bg-white border-stone-200 text-indigo-900 hover:border-indigo-400'
+                  }`}
+                >
+                  8 Marks ({questions8List.length})
+                </button>
+
+                {/* 6. 12 Marks */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMark('12')}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                    selectedMark === '12'
+                      ? 'bg-purple-700 border-purple-700 text-white shadow-sm'
+                      : 'bg-white border-stone-200 text-purple-900 hover:border-purple-400'
+                  }`}
+                >
+                  ⭐ 12 Marks ({questions12List.length})
+                </button>
+              </div>
+
+              {/* ═════════════════════════════════════════════════ */}
+              {/* VIEW MODE: IMPORTANT QUESTIONS DERIVED FROM SYLLABUS */}
+              {/* ═════════════════════════════════════════════════ */}
+              {selectedMark === 'important' && (
+                <div className="space-y-4 pt-2">
+                  <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-4 text-xs text-amber-950 flex items-center justify-between">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Star className="h-4 w-4 text-amber-600 fill-amber-500" />
+                      Curated High-Yield Exam Questions from syllabus analysis. Answers hidden until requested.
                     </span>
-                    <span className="text-[10px] opacity-60">{msg.timestamp}</span>
+                    <span className="font-bold text-amber-800">{importantQuestions.length} Questions</span>
                   </div>
 
-                  <div className="font-sans">
-                    {msg.sender === 'gemini' ? (
-                      renderFormattedChatMessage(msg.text, activeSpokenText, speakingMessageId === msg.id)
-                    ) : (
-                      <div className="whitespace-pre-wrap">{msg.text}</div>
-                    )}
+                  <div className="grid gap-4">
+                    {importantQuestions.map((q, qIdx) => {
+                      const ansKey = `imp_${q.markType}_${q.id}_${qIdx}`;
+                      const isExpanded = !!expandedAnswers[ansKey];
+
+                      return (
+                        <div key={ansKey} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3 transition-all">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                              {q.markBadge}
+                            </span>
+                            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                              High-Priority Exam Topic
+                            </span>
+                          </div>
+
+                          <p className="text-sm sm:text-base font-bold text-ink leading-snug">
+                            {q.question}
+                          </p>
+
+                          {/* On-Demand View Answer Button */}
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleAnswer(ansKey)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isExpanded
+                                  ? 'bg-stone-200 text-stone-800'
+                                  : 'bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200'
+                              }`}
+                            >
+                              {isExpanded ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              <span>{isExpanded ? 'Hide Answer' : 'View Answer'}</span>
+                            </button>
+                          </div>
+
+                          {/* Collapsible Answer Content */}
+                          {isExpanded && (
+                            <div className="mt-3 pt-3 border-t border-stone-200 animate-fade-up">
+                              {typeof q.answer === 'string' ? (
+                                <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line">
+                                  {q.answer}
+                                </div>
+                              ) : (
+                                <div className="space-y-3 text-xs sm:text-sm">
+                                  {q.answer?.introduction && (
+                                    <div className="rounded-xl bg-teal-50/70 border border-teal-200 p-3.5">
+                                      <p className="font-bold text-teal-900 mb-1">1. Introduction &amp; Definition:</p>
+                                      <p className="text-stone-800 whitespace-pre-line">{q.answer.introduction}</p>
+                                    </div>
+                                  )}
+                                  {q.answer?.architecture_types && (
+                                    <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3.5">
+                                      <p className="font-bold text-indigo-900 mb-1">2. Architecture &amp; Key Types:</p>
+                                      <p className="text-stone-800 whitespace-pre-line">{q.answer.architecture_types}</p>
+                                    </div>
+                                  )}
+                                  {q.answer?.program_code && (
+                                    <div className="rounded-xl bg-stone-900 p-3.5 text-emerald-300 font-mono text-xs overflow-x-auto">
+                                      <pre>{q.answer.program_code}</pre>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ═════════════════════════════════════════════════ */}
+              {/* 2-MARK QUESTIONS (Part A Definitions) */}
+              {/* ═════════════════════════════════════════════════ */}
+              {(selectedMark === 'all' || selectedMark === '2') && questions2List.length > 0 && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-800">
+                      PART A • 2 MARKS
+                    </span>
+                    <h3 className="text-base font-bold text-ink">
+                      {language === 'ta' ? '2-மதிப்பெண் குறுவினாக்கள் (வரையறை / சூத்திரம்)' : 'Short 2-Mark Questions (Definitions & Principles)'}
+                    </h3>
                   </div>
 
-                  {msg.sender === 'gemini' && (
-                    <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-between">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {questions2List.map((q) => {
+                      const ansKey = `2_${q.id}`;
+                      const isExpanded = !!expandedAnswers[ansKey];
+
+                      return (
+                        <div key={q.id} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-teal-700 uppercase">Q.{q.id} • 2 Marks</span>
+                              <span className="flex items-center gap-0.5 text-amber-500">
+                                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-ink">{q.question}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-stone-100">
+                            <button
+                              type="button"
+                              onClick={() => toggleAnswer(ansKey)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 transition-colors cursor-pointer border border-teal-200"
+                            >
+                              {isExpanded ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              <span>{isExpanded ? 'Hide Answer' : 'View Answer'}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="rounded-xl bg-stone-50 border border-stone-200 p-3.5 text-xs leading-relaxed text-stone-800 font-medium mt-3 animate-fade-up">
+                                <span className="font-bold text-teal-900">{language === 'ta' ? 'விடைக்குறிப்பு:' : 'Crisp Answer:'} </span>
+                                {q.answer}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ═════════════════════════════════════════════════ */}
+              {/* 3-MARK QUESTIONS */}
+              {/* ═════════════════════════════════════════════════ */}
+              {(selectedMark === 'all' || selectedMark === '3') && questions3List.length > 0 && (
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-800">
+                      PART B • 3 MARKS
+                    </span>
+                    <h3 className="text-base font-bold text-ink">
+                      {language === 'ta' ? '3-மதிப்பெண் சிறுவினாக்கள் (பண்புகள் & முக்கியக் கூறுகள்)' : '3-Mark Conceptual Questions (Key Points & Features)'}
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {questions3List.map((q) => {
+                      const ansKey = `3_${q.id}`;
+                      const isExpanded = !!expandedAnswers[ansKey];
+
+                      return (
+                        <div key={q.id} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-teal-700 uppercase">Q.{q.id} • 3 Marks</span>
+                              <span className="flex items-center gap-0.5 text-amber-500">
+                                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                                <Star className="h-3.5 w-3.5 fill-amber-400" />
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-ink">{q.question}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-stone-100">
+                            <button
+                              type="button"
+                              onClick={() => toggleAnswer(ansKey)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 transition-colors cursor-pointer border border-teal-200"
+                            >
+                              {isExpanded ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              <span>{isExpanded ? 'Hide Answer' : 'View Answer'}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="rounded-xl bg-teal-50/60 border border-teal-200 p-3.5 text-xs leading-relaxed text-stone-800 font-medium mt-3 animate-fade-up">
+                                <span className="font-bold text-teal-900">{language === 'ta' ? 'விடைக்குறிப்பு:' : 'Core Explanation:'} </span>
+                                {q.answer}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ═════════════════════════════════════════════════ */}
+              {/* 8-MARK STRUCTURED ESSAYS (Part B Standard) */}
+              {/* ═════════════════════════════════════════════════ */}
+              {(selectedMark === 'all' || selectedMark === '8') && questions8List.length > 0 && (
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-900">
+                      PART B • 8 MARKS
+                    </span>
+                    <h3 className="text-base font-bold text-ink">
+                      {language === 'ta' ? '8-மதிப்பெண் வினாக்கள் (கட்டமைப்பு விளக்கங்கள்)' : 'Structured 8-Mark University Questions (Mechanism & Points)'}
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-5">
+                    {questions8List.map((q) => {
+                      const ansKey = `8_${q.id}`;
+                      const isExpanded = !!expandedAnswers[ansKey];
+
+                      return (
+                        <div key={q.id} className="rounded-2xl border-2 border-indigo-200/80 bg-white p-6 shadow-sm space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">
+                              Q.{q.id} • 8 Marks Analytical Question
+                            </span>
+                            <span className="flex items-center gap-0.5 text-amber-500">
+                              <Star className="h-4 w-4 fill-amber-400" />
+                              <Star className="h-4 w-4 fill-amber-400" />
+                              <Star className="h-4 w-4 fill-amber-400" />
+                              <Star className="h-4 w-4 fill-amber-400" />
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-bold text-ink leading-snug">
+                            {q.question}
+                          </h4>
+
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleAnswer(ansKey)}
+                              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isExpanded
+                                  ? 'bg-stone-200 text-stone-800'
+                                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200'
+                              }`}
+                            >
+                              {isExpanded ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              <span>{isExpanded ? 'Hide Structured 8-Mark Answer' : 'View Structured 8-Mark Answer'}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="rounded-xl bg-indigo-50/50 border border-indigo-100 p-4 text-xs sm:text-sm leading-relaxed text-stone-800 font-medium whitespace-pre-line mt-3 animate-fade-up">
+                                {q.answer}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ═════════════════════════════════════════════════ */}
+              {/* 12-MARK COMPREHENSIVE UNIVERSITY ESSAYS (Part C) */}
+              {/* ═════════════════════════════════════════════════ */}
+              {(selectedMark === 'all' || selectedMark === '12') && questions12List.length > 0 && (
+                <div className="space-y-6 pt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-900">
+                      PART C • 12 MARKS
+                    </span>
+                    <h3 className="text-base font-bold text-ink">
+                      {language === 'ta' ? '12-மதிப்பெண் முழுமையான விரிவான வினாக்கள்' : '12-Mark University Essay Breakdown (7-Part Exam Format)'}
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-6">
+                    {questions12List.map((q) => {
+                      const ansKey = `12_${q.id}`;
+                      const isExpanded = !!expandedAnswers[ansKey];
+
+                      return (
+                        <div key={q.id} className="rounded-3xl border-2 border-purple-200 bg-white p-6 sm:p-8 shadow-md space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-purple-800 uppercase tracking-wide">
+                              Q.{q.id} • 12 Marks Master Essay
+                            </span>
+                            <span className="flex items-center gap-1 text-xs font-extrabold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                              <Star className="h-3.5 w-3.5 fill-amber-400" />
+                              University Exam High-Scorer (12/12)
+                            </span>
+                          </div>
+
+                          <h4 className="text-lg font-extrabold text-ink leading-snug">
+                            {q.question}
+                          </h4>
+
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleAnswer(ansKey)}
+                              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isExpanded
+                                  ? 'bg-stone-200 text-stone-800'
+                                  : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
+                              }`}
+                            >
+                              {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              <span>{isExpanded ? 'Hide 12-Mark Breakdown' : 'View Full 12-Mark Exam Sheet Breakdown'}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="space-y-5 pt-4 border-t border-purple-100 mt-4 animate-fade-up">
+                                {/* 1. Introduction & Core Definition */}
+                                {q.answer?.introduction && (
+                                  <div className="rounded-2xl bg-teal-50/70 border border-teal-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-teal-950 flex items-center gap-1.5">
+                                      <FileText className="h-4 w-4 text-teal-700" />
+                                      1. {language === 'ta' ? 'அறிமுகம் & கோட்பாட்டு வரையறை' : 'Introduction & Core Definition'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.introduction}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 2. Architectural Scope & Types */}
+                                {q.answer?.architecture_types && (
+                                  <div className="rounded-2xl bg-indigo-50/70 border border-indigo-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                                      <Layers className="h-4 w-4 text-indigo-700" />
+                                      2. {language === 'ta' ? 'கட்டமைப்பு வரம்புகள் & வகைகள்' : 'Architectural Scope & Types/Categories'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.architecture_types}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 3. Concrete Example & Real-World Relevance */}
+                                {q.answer?.concrete_example && (
+                                  <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                                      <BookOpen className="h-4 w-4 text-amber-700" />
+                                      3. {language === 'ta' ? 'நிஜ உலக பயன்பாடுகள் & உதாரணங்கள்' : 'Concrete Example & Real-world Relevance'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.concrete_example}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 4. Full Clean Programming Code */}
+                                {q.answer?.program_code && (
+                                  <div className="rounded-2xl bg-stone-900 border border-stone-800 p-4 space-y-2 shadow-inner">
+                                    <div className="flex items-center justify-between text-stone-400">
+                                      <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                        <Code className="h-4 w-4 text-teal-400" />
+                                        4. {language === 'ta' ? 'முழுமையான நிரல் (Clean Program Code)' : 'Full Clean Programming Code'}
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyText(q.answer.program_code || '', `code_${q.id}`)}
+                                        className="text-[11px] text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors cursor-pointer"
+                                      >
+                                        {copiedCodeId === `code_${q.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                        {copiedCodeId === `code_${q.id}` ? 'Copied' : 'Copy Code'}
+                                      </button>
+                                    </div>
+                                    <pre className="font-mono text-xs overflow-x-auto p-3 bg-black/40 rounded-xl text-emerald-300 leading-relaxed whitespace-pre">
+                                      {q.answer.program_code}
+                                    </pre>
+                                  </div>
+                                )}
+
+                                {/* 5. Exact Program Output */}
+                                {q.answer?.program_output && (
+                                  <div className="rounded-2xl bg-stone-950 border border-stone-800 p-4 space-y-2 shadow-inner">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                                      <Terminal className="h-4 w-4 text-emerald-400" />
+                                      5. {language === 'ta' ? 'நிரல் வெளியீடு (Exact Program Output)' : 'Exact Program Output'}
+                                    </p>
+                                    <div className="font-mono text-xs text-stone-200 bg-stone-900/90 rounded-xl p-3 border border-stone-800 whitespace-pre leading-relaxed overflow-x-auto">
+                                      <span className="text-emerald-500 font-bold">$ </span>{q.answer.program_output}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 6. Numerical Problem & Worked-Out Solution */}
+                                {q.answer?.numerical_problem && (
+                                  <div className="rounded-2xl bg-purple-50/70 border border-purple-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
+                                      <Calculator className="h-4 w-4 text-purple-700" />
+                                      6. {language === 'ta' ? 'கணித மாதிரி வினா & தீர்வு (Numerical Problem & Solution)' : 'Numerical/Example Problem & Worked-out Solution'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.numerical_problem}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 7. Trade-offs & Complexity */}
+                                {(q.answer?.tradeoffs_complexity || q.answer?.conclusion) && (
+                                  <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                                      <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                                      7. {language === 'ta' ? 'நன்மைகள் & கால/நினைவக சிக்கல்தன்மை (Advantages & Complexity)' : 'Advantages, Disadvantages & Time/Space Complexity'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.tradeoffs_complexity || q.answer.conclusion}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </section>
+          )}
+
+          {/* ── Practice Quiz Section (Powered by Groq AI) ───────── */}
+          {groqData && (
+            <section className="space-y-6 pt-6 border-t border-stone-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-ink flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-teal-600" />
+                    Practice Quiz: AI Multiple-Choice Questions
+                  </h2>
+                  <p className="text-xs text-stone-500">
+                    Self-evaluation test generated directly from your uploaded material.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowQuiz(!showQuiz)}
+                  className="btn-primary bg-gradient-to-r from-teal-600 to-cyan-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  {showQuiz ? 'Hide Practice Quiz' : 'Take Practice Quiz'}
+                </button>
+              </div>
+
+              {showQuiz && (
+                <div className="rounded-3xl border-2 border-stone-200 bg-white p-6 sm:p-8 space-y-6 shadow-sm animate-fade-up">
+                  {submittedQuiz && (
+                    <div className="rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-600 p-5 text-white shadow-md flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider opacity-90">Your Score</p>
+                        <p className="text-2xl font-extrabold">{calculateScore()} / {groqData.quiz.length} Correct</p>
+                      </div>
                       <button
-                        type="button"
-                        onClick={() => speakMessageSynchronized(msg.text, msg.id)}
-                        className={`text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer px-2 py-1 rounded-lg ${
-                          speakingMessageId === msg.id
-                            ? 'bg-cyan-100 text-cyan-800 font-bold'
-                            : 'text-stone-600 hover:text-cyan-700 hover:bg-stone-100'
-                        }`}
+                        onClick={handleResetQuiz}
+                        className="rounded-xl bg-white/20 hover:bg-white/30 px-4 py-2 text-xs font-bold transition-all cursor-pointer"
                       >
-                        {speakingMessageId === msg.id ? (
-                          <>
-                            <VolumeX className="h-3.5 w-3.5 text-rose-600" />
-                            <span>Stop Speaking</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="h-3.5 w-3.5 text-cyan-600" />
-                            <span>Listen Live Audio</span>
-                          </>
-                        )}
+                        Try Again
                       </button>
+                    </div>
+                  )}
 
+                  <div className="space-y-6">
+                    {groqData.quiz.map((item, qIdx) => {
+                      const selected = quizAnswers[qIdx];
+                      const correctIdx = ['A', 'B', 'C', 'D'].indexOf(item.answer);
+
+                      return (
+                        <div key={qIdx} className="space-y-3 p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                          <p className="text-sm font-bold text-ink">
+                            {qIdx + 1}. {item.question}
+                          </p>
+
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {item.options.map((opt, optIdx) => {
+                              let optStyle = 'bg-white border-stone-200 hover:border-teal-400 text-stone-700';
+
+                              if (submittedQuiz) {
+                                if (optIdx === correctIdx) {
+                                  optStyle = 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold';
+                                } else if (selected === optIdx) {
+                                  optStyle = 'bg-rose-50 border-rose-500 text-rose-900 line-through';
+                                }
+                              } else if (selected === optIdx) {
+                                optStyle = 'bg-teal-50 border-teal-600 text-teal-900 font-bold shadow-xs';
+                              }
+
+                              return (
+                                <button
+                                  key={optIdx}
+                                  type="button"
+                                  onClick={() => handleSelectAnswer(qIdx, optIdx)}
+                                  className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs sm:text-sm text-left transition-all cursor-pointer ${optStyle}`}
+                                >
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[11px] font-bold">
+                                    {String.fromCharCode(65 + optIdx)}
+                                  </span>
+                                  <span className="flex-1">{opt}</span>
+                                  {submittedQuiz && optIdx === correctIdx && (
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                  )}
+                                  {submittedQuiz && selected === optIdx && optIdx !== correctIdx && (
+                                    <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!submittedQuiz && (
+                    <div className="flex justify-end pt-2">
                       <button
                         type="button"
-                        onClick={() => handleCopyText(msg.text, msg.id)}
-                        className="text-[11px] font-semibold text-stone-500 hover:text-teal-700 flex items-center gap-1 transition-colors cursor-pointer"
+                        onClick={handleSubmitQuiz}
+                        disabled={Object.keys(quizAnswers).length === 0}
+                        className="btn-primary px-6 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold cursor-pointer disabled:opacity-50"
                       >
-                        {copiedCodeId === msg.id ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                        {copiedCodeId === msg.id ? 'Copied' : 'Copy'}
+                        Submit Quiz &amp; Check Answers
                       </button>
                     </div>
                   )}
                 </div>
+              )}
+            </section>
+          )}
 
-                {msg.sender === 'user' && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-ink shadow-xs text-xs font-bold mt-1">
-                    <User className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {chatLoading && (
-              <div className="flex items-center gap-3 text-cyan-800 font-semibold text-xs py-2 animate-pulse">
-                <Loader2 className="h-5 w-5 animate-spin text-cyan-700" />
-                Gemini AI is analyzing your exact request &amp; responding dynamically...
-              </div>
-            )}
-
-            {chatError && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-                {chatError}
-              </div>
-            )}
-
-            <div ref={chatMessagesEndRef} />
-          </div>
-
-          {/* Chat Input Bar with Live Speech-to-Text Mic */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendChat();
-            }}
-            className="flex items-center gap-2"
-          >
-            {/* Real-time Voice Input Mic Button */}
-            <button
-              type="button"
-              onClick={toggleListening}
-              title={voiceState === 'listening' ? 'Click to stop listening' : 'Click to speak your question'}
-              className={`p-3 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm ${
-                voiceState === 'listening'
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-4 ring-rose-200'
-                  : 'bg-gradient-to-tr from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white'
-              }`}
-            >
-              {voiceState === 'listening' ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
-
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder={
-                voiceState === 'listening'
-                  ? '🎙️ Listening to your voice... Speak now...'
-                  : language === 'ta'
-                  ? 'கேள்வி அல்லது வரைபடம் கேளுங்கள் (எ.கா: Exception Handling எளிய விளக்கம் & நிரல் தருக)...'
-                  : 'Ask any question or diagram (e.g. Exception handling simple definition and code)...'
-              }
-              className="input flex-1 text-xs sm:text-sm py-3"
-              disabled={chatLoading}
-            />
-            <button
-              type="submit"
-              disabled={!chatInput.trim() || chatLoading}
-              className="btn-primary flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
-            >
-              {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              <span>{language === 'ta' ? 'அனுப்பு' : 'Ask AI'}</span>
-            </button>
-          </form>
         </div>
-      </section>
 
-      {/* ── Practice Quiz Section (Preserved & Powered by AI) ─── */}
-      {groqData && (
-        <section className="space-y-6 pt-6 border-t border-stone-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-ink flex items-center gap-2">
-                <BookOpen className="h-6 w-6 text-teal-600" />
-                Practice Quiz: AI Multiple-Choice Questions
-              </h2>
-              <p className="text-xs text-stone-500">
-                Self-evaluation test generated directly from your uploaded material.
-              </p>
+        {/* ═════════════════════════════════════════════════════════ */}
+        {/* RIGHT COLUMN: Clean Sidebar AI Study Assistant (4 cols)   */}
+        {/* ═════════════════════════════════════════════════════════ */}
+        <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-20">
+          <div className="rounded-3xl border-2 border-indigo-200/90 bg-white p-5 sm:p-6 shadow-xl space-y-4">
+            
+            {/* Sidebar Header */}
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 text-white shadow-sm">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-ink leading-tight">
+                    {language === 'ta' ? 'AI கல்வி உதவியாளர்' : 'AI Study Assistant'}
+                  </h3>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    Online • On-Demand
+                  </span>
+                </div>
+              </div>
+
+              <span className="text-[10px] uppercase font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                Gemini AI
+              </span>
             </div>
-            <button
-              onClick={() => setShowQuiz(!showQuiz)}
-              className="btn-primary bg-gradient-to-r from-teal-600 to-cyan-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2"
-            >
-              {showQuiz ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {showQuiz ? 'Hide Quiz' : 'Start Practice Quiz'}
-            </button>
-          </div>
 
-          {showQuiz && (
-            <div className="space-y-6 animate-fade-in pt-4">
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-teal-50 border border-teal-200 p-4">
-                <p className="text-xs font-bold text-teal-900">
-                  Answer the questions below and click Submit to check your score.
-                </p>
+            {/* Quick Prompt Suggestion Pills */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                Quick Prompts:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
                 <button
-                  onClick={() => setSubmittedQuiz(true)}
-                  disabled={submittedQuiz}
-                  className="rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold px-5 py-2 text-xs shadow transition-colors"
+                  type="button"
+                  onClick={() => handleSendChat(`Write a structured 8-mark university exam answer with definition, 4-6 key mechanism points, and a concrete example for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 px-2.5 py-1 text-[11px] font-semibold text-indigo-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                 >
-                  Submit &amp; Check Answers
+                  <FileText className="h-3 w-3 text-indigo-600" />
+                  📝 8-Mark Answer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam essay with all 7 sections for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-purple-200 bg-purple-50/80 hover:bg-purple-100 px-2.5 py-1 text-[11px] font-semibold text-purple-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <FileText className="h-3 w-3 text-purple-600" />
+                  📋 12-Mark Essay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Provide complete clean compilable programming code with comments and exact terminal execution output for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 px-2.5 py-1 text-[11px] font-semibold text-teal-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Code className="h-3 w-3 text-teal-600" />
+                  💻 Code &amp; Output
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Draw a clean flowchart / diagram for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-cyan-200 bg-cyan-50/80 hover:bg-cyan-100 px-2.5 py-1 text-[11px] font-semibold text-cyan-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Layers className="h-3 w-3 text-cyan-600" />
+                  🎨 Flowchart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Explain in simple English words: provide the clear definition and key categories for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <BookOpen className="h-3 w-3 text-emerald-600" />
+                  💡 Simple Summary
                 </button>
               </div>
+            </div>
 
-              {submittedQuiz && (
-                <div className="rounded-2xl bg-indigo-50 border-2 border-indigo-300 p-5 text-center text-indigo-950">
-                  <h3 className="text-lg font-extrabold">Quiz Result</h3>
-                  <p className="text-sm mt-1">
-                    You scored{' '}
-                    <span className="font-bold text-teal-700">{correctCount}</span>
-                    {' '}out of{' '}
-                    <span className="font-bold">{groqData.quiz.length}</span> correct!
-                  </p>
+            {/* Chat Messages Feed */}
+            <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1 rounded-2xl bg-stone-50/70 p-3 border border-stone-200/80">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.sender === 'gemini' && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-white shadow-2xs text-[10px] font-bold mt-1">
+                      <Bot className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+
+                  <div
+                    className={`max-w-[88%] rounded-2xl p-3 shadow-2xs text-xs leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-gradient-to-r from-teal-700 to-indigo-700 text-white rounded-tr-xs'
+                        : 'bg-white border border-stone-200 text-stone-800 rounded-tl-xs'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-black/5">
+                      <span className="font-bold text-[10px] opacity-75">
+                        {msg.sender === 'user' ? 'You' : 'Gemini AI'}
+                      </span>
+                      <span className="text-[9px] opacity-60">{msg.timestamp}</span>
+                    </div>
+
+                    <div className="font-sans">
+                      {msg.sender === 'gemini' ? (
+                        renderFormattedChatMessage(msg.text)
+                      ) : (
+                        <div className="whitespace-pre-wrap">{msg.text}</div>
+                      )}
+                    </div>
+
+                    {msg.sender === 'gemini' && (
+                      <div className="mt-2 pt-1 border-t border-stone-100 flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(msg.text, msg.id)}
+                          className="text-[10px] font-semibold text-stone-500 hover:text-teal-700 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          {copiedCodeId === msg.id ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                          {copiedCodeId === msg.id ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {msg.sender === 'user' && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-ink shadow-2xs text-[10px] font-bold mt-1">
+                      <User className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {chatLoading && (
+                <div className="flex items-center gap-2 text-teal-800 font-semibold text-xs py-1.5 animate-pulse">
+                  <Loader2 className="h-4 w-4 animate-spin text-teal-700" />
+                  Analyzing syllabus and generating answer…
                 </div>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {groqData.quiz.map((q, qIdx) => {
-                  const selectedOpt = quizAnswers[qIdx];
-                  const correctIdx = q.answer.charCodeAt(0) - 65;
+              {chatError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+                  {chatError}
+                </div>
+              )}
 
-                  return (
-                    <div
-                      key={qIdx}
-                      className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3"
-                    >
-                      <p className="text-sm font-bold text-ink">
-                        {qIdx + 1}. {q.question}
-                      </p>
-
-                      <div className="space-y-2">
-                        {(q.options || []).map((opt, optIdx) => {
-                          const isSelected = selectedOpt === optIdx;
-                          const isCorrectOpt = optIdx === correctIdx;
-
-                          let optClass = 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100';
-                          if (isSelected && !submittedQuiz) {
-                            optClass = 'bg-teal-100 border-teal-600 text-teal-900';
-                          } else if (submittedQuiz) {
-                            if (isSelected && isCorrectOpt)
-                              optClass = 'bg-emerald-100 border-emerald-500 text-emerald-900';
-                            else if (isSelected && !isCorrectOpt)
-                              optClass = 'bg-rose-100 border-rose-500 text-rose-900';
-                            else if (isCorrectOpt)
-                              optClass = 'bg-emerald-50 border-emerald-300 text-emerald-800';
-                          }
-
-                          return (
-                            <button
-                              key={optIdx}
-                              onClick={() => {
-                                if (!submittedQuiz) {
-                                  setQuizAnswers({ ...quizAnswers, [qIdx]: optIdx });
-                                }
-                              }}
-                              className={`w-full text-left rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border ${optClass}`}
-                            >
-                              {opt}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {submittedQuiz && (
-                        <div className="pt-2 text-xs font-bold">
-                          {selectedOpt === correctIdx ? (
-                            <span className="text-emerald-600 flex items-center gap-1">
-                              <CheckCircle2 className="h-4 w-4" /> Correct!
-                            </span>
-                          ) : (
-                            <span className="text-rose-600 flex items-center gap-1">
-                              <XCircle className="h-4 w-4" />
-                              Correct answer: {q.options[correctIdx]}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <div ref={chatMessagesEndRef} />
             </div>
-          )}
-        </section>
-      )}
 
+            {/* Chat Input Bar with Simple Voice Microphone */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendChat();
+              }}
+              className="flex items-center gap-2 pt-1"
+            >
+              {/* Small, clean microphone icon directly adjacent to input box */}
+              <button
+                type="button"
+                onClick={toggleListening}
+                title={isListening ? 'Listening to speech... Tap to stop' : 'Tap microphone to speak'}
+                className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-xs ${
+                  isListening
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-2 ring-rose-300'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                }`}
+              >
+                {isListening ? <MicOff className="h-4 w-4 text-white" /> : <Mic className="h-4 w-4 text-stone-700" />}
+              </button>
+
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={
+                  isListening
+                    ? 'Listening... Speak now...'
+                    : language === 'ta'
+                    ? 'கேள்வி அல்லது தலைப்பு கேட்கவும்...'
+                    : 'Ask any question or diagram...'
+                }
+                className="input flex-1 text-xs py-2.5 px-3"
+                disabled={chatLoading}
+              />
+
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || chatLoading}
+                className="btn-primary flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </button>
+            </form>
+          </div>
+        </aside>
+
+      </div>
     </div>
   );
 }

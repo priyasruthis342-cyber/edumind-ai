@@ -227,11 +227,12 @@ STRICT ANNA UNIVERSITY EXAM PATTERN & ANSWER PRESENTATION GUIDELINES:
 2. 3-MARK QUESTIONS (Part A / B conceptual bridge):
    - Core definition + 3 distinct key points, characteristics, applications or short diagram note.
 
-3. 5-MARK QUESTIONS (Part B short essays):
+3. 8-MARK STRUCTURED ESSAY QUESTIONS (Part B University Standard):
    - Structured answer containing:
      * Highlighted Definition Box / Core Concept statement.
-     * 4-6 detailed bullet points explaining the mechanism or principles.
-     * If technical/programming: include syntax and short code snippet.
+     * 4-6 detailed bullet points explaining the working mechanism or architectural principles.
+     * Concrete real-world example and technical breakdown.
+     * If technical/programming: include syntax and clean code snippet with output.
      * If theoretical/engineering: provide a clear [Diagram Description: ...] placeholder that students can easily draw in exams.
 
 4. 12-MARK COMPREHENSIVE UNIVERSITY ESSAY QUESTIONS (Part C full 12/12 scoring model):
@@ -270,7 +271,7 @@ Schema:
     { "id": 3, "question": "...", "answer": "..." },
     { "id": 4, "question": "...", "answer": "..." }
   ],
-  "questions_5mark": [
+  "questions_8mark": [
     { "id": 1, "question": "...", "answer": "..." },
     { "id": 2, "question": "...", "answer": "..." },
     { "id": 3, "question": "...", "answer": "..." },
@@ -317,7 +318,8 @@ Schema:
       summary: parsed.summary || '',
       questions_2mark: parsed.questions_2mark || [],
       questions_3mark: parsed.questions_3mark || parsed.questions_1mark || [],
-      questions_5mark: parsed.questions_5mark || [],
+      questions_5mark: parsed.questions_8mark || parsed.questions_5mark || [],
+      questions_8mark: parsed.questions_8mark || parsed.questions_5mark || [],
       questions_12mark: parsed.questions_12mark || []
     });
 
@@ -384,6 +386,15 @@ function generateLocalExamQA(prompt, language = 'en') {
         answer: isTamil
           ? `கணினி நினைவக மேலாண்மை, தரவுத் தேடல் அமைப்புகள் மற்றும் நிஜ உலக மென்பொருள் கட்டமைப்புகளில் பயன்படுகிறது.`
           : `Widely implemented in operating system memory management, real-time transaction processing, and enterprise data models.`
+      }
+    ],
+    questions_8mark: [
+      {
+        id: 1,
+        question: isTamil ? `${topic1} மற்றும் ${topic2} ஆகியவற்றின் கட்டமைப்பு, செயல்பாட்டு முறை மற்றும் பயன்பாடுகளை விவரிக்க (8 Marks).` : `Explain the architecture, working mechanism, and practical applications of ${topic1} and ${topic2} (8 Marks).`,
+        answer: isTamil
+          ? `[வரையறை பெட்டி: ${topic1}]\n- கட்டமைப்பு மற்றும் செயல்பாட்டுக் கோட்பாடு.\n- நினைவக அமைப்பு, சுட்டிகள் மற்றும் செயல்முறை வரிசை.\n- நிஜ உலக பயன்பாடுகள் மற்றும் நடைமுறை முக்கியத்துவம்.`
+          : `[DEFINITION BOX: ${topic1}]\n- Architectural flow and foundational operational parameters.\n- Contiguous vs non-contiguous memory management tradeoffs.\n- Clean implementation syntax, error handling boundaries, and real-world industrial relevance.`
       }
     ],
     questions_5mark: [
