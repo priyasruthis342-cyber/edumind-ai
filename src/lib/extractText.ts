@@ -5,34 +5,66 @@ export interface ExtractedFile {
   kind: ExtractedKind;
 }
 
-const MAX_PDF_PAGES = 60;
+const OCR_ASSET_DIR = `${import.meta.env.BASE_URL}tesseract/`;
 
 async function extractPdf(file: File): Promise<string> {
   const pdfjs = await import('pdfjs-dist');
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-  const document = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
-  const pageCount = Math.min(document.numPages, MAX_PDF_PAGES);
+  const arrayBuffer = await file.arrayBuffer();
+  const document = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+  const totalPages = document.numPages;
   const pages: string[] = [];
 
-  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+  for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
     const page = await document.getPage(pageNumber);
     const content = await page.getTextContent();
     let pageText = '';
+
     for (const item of content.items) {
       if (!('str' in item)) continue;
       pageText += item.str;
       pageText += item.hasEOL ? '\n' : ' ';
     }
-    pages.push(pageText);
+
+    // If page is scanned (no digital text layer), attempt OCR on this page
+    if (pageText.trim().length < 20) {
+      try {
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = window.document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (context) {
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await page.render({ canvasContext: context, viewport } as any).promise;
+          const { createWorker } = await import('tesseract.js');
+          const worker = await createWorker('eng', 1, {
+            workerPath: `${OCR_ASSET_DIR}worker.min.js`,
+            corePath: OCR_ASSET_DIR,
+            langPath: OCR_ASSET_DIR,
+            gzip: true,
+          });
+          const { data } = await worker.recognize(canvas);
+          await worker.terminate();
+          if (data && data.text.trim()) {
+            pageText = data.text;
+          }
+        }
+      } catch (ocrErr) {
+        console.warn(`Scanned PDF OCR fallback note for page ${pageNumber}:`, ocrErr);
+      }
+    }
+
+    if (pageText.trim()) {
+      pages.push(`--- Page ${pageNumber} ---\n` + pageText.trim());
+    }
   }
 
   await document.destroy();
-  return pages.join('\n');
+  return pages.join('\n\n');
 }
-
-const OCR_ASSET_DIR = `${import.meta.env.BASE_URL}tesseract/`;
 
 async function extractImage(file: File): Promise<string> {
   const { createWorker } = await import('tesseract.js');
@@ -45,13 +77,14 @@ async function extractImage(file: File): Promise<string> {
       gzip: true,
     });
   } catch {
-    throw new Error('The text reader could not start. Refresh the page and try again, or upload a PDF or text file.');
+    throw new Error('The text OCR engine could not initialize. Refresh and try again.');
   }
+
   try {
     const { data } = await worker.recognize(file);
-    return data.text;
+    return data.text || '';
   } catch {
-    throw new Error('The photo could not be read. Try a clearer, well-lit photo or upload a PDF or text file.');
+    throw new Error('The photo/document could not be read clearly. Please try a clearer scan or upload a PDF.');
   } finally {
     await worker.terminate();
   }

@@ -11,11 +11,15 @@ export interface QuestionSimple {
   id: number;
   question: string;
   answer: string;
+  importance_stars?: number;
+  priority_tag?: string;
 }
 
 export interface Question12Mark {
   id: number;
   question: string;
+  importance_stars?: number;
+  priority_tag?: string;
   answer: {
     // 7-Part Professional University Exam Sheet Structure
     introduction?: string;

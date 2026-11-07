@@ -3,9 +3,10 @@ import {
   Sparkles, Star, CheckCircle2, XCircle,
   BookOpen, Award, Eye, EyeOff, Loader2, AlertTriangle,
   Layers, FileText, Check, Globe, Volume2,
-  Send, Bot, User, Copy, Code, Mic, MicOff,
+  Send, Bot, User, Copy, Code, Mic, Square,
   Terminal, Calculator, HelpCircle
 } from 'lucide-react';
+import { MermaidDiagram } from '@/components/study/MermaidDiagram';
 import { getScan, setActiveSyllabus } from '@/lib/data';
 import { fetchGroqStudyData, type GroqAIResponse } from '@/lib/groqApi';
 import {
@@ -65,20 +66,7 @@ function renderFormattedChatMessage(text: string) {
 
           if (lang === 'mermaid' || codeContent.startsWith('graph ') || codeContent.startsWith('flowchart ')) {
             return (
-              <div key={pIdx} className="rounded-2xl border-2 border-cyan-500/40 bg-slate-950 p-3.5 my-2.5 text-cyan-200 shadow-lg">
-                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-cyan-800/60">
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300 uppercase tracking-wider">
-                    <Layers className="h-3.5 w-3.5 text-cyan-400" />
-                    Visual Diagram / Flowchart
-                  </span>
-                  <span className="text-[9px] text-cyan-400/80 font-mono bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800">
-                    Diagram
-                  </span>
-                </div>
-                <pre className="text-cyan-100 font-mono text-[11px] whitespace-pre leading-relaxed bg-slate-900/90 p-2.5 rounded-xl border border-cyan-900/60 overflow-x-auto">
-                  {codeContent}
-                </pre>
-              </div>
+              <MermaidDiagram key={pIdx} code={codeContent} />
             );
           }
 
@@ -183,10 +171,11 @@ export function StudyPage({ id }: StudyPageProps) {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // ── Simple Voice Input (Microphone) ───────────────────────────
+  // ── Manual Continuous Voice Input (Microphone) ───────────────
   const [isListening, setIsListening] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
 
   const startListening = () => {
     if (typeof window === 'undefined') return;
@@ -198,11 +187,20 @@ export function StudyPage({ id }: StudyPageProps) {
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_abortErr) {
+          console.warn('Aborted previous recognition instance:', _abortErr);
+        }
+      }
+
       const recognition = new SpeechRec();
       recognitionRef.current = recognition;
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
+      isListeningRef.current = true;
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -212,35 +210,53 @@ export function StudyPage({ id }: StudyPageProps) {
       recognition.onresult = (event: any) => {
         let interim = '';
         let final = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
+            final += event.results[i][0].transcript + ' ';
           } else {
             interim += event.results[i][0].transcript;
           }
         }
-        const text = final || interim;
-        setChatInput(text);
+        const text = (final + interim).trim();
+        if (text) {
+          setChatInput(text);
+        }
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (err: any) => {
-        console.warn('Speech recognition error:', err);
-        setIsListening(false);
+        console.warn('Speech recognition notice:', err);
+        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+          setIsListening(false);
+          isListeningRef.current = false;
+        }
       };
 
       recognition.onend = () => {
-        setIsListening(false);
+        // If user is still recording, keep continuous listening active
+        if (isListeningRef.current) {
+          try {
+            recognition.start();
+          } catch (_restartErr) {
+            console.warn('Recognition restart note:', _restartErr);
+            setIsListening(false);
+            isListeningRef.current = false;
+          }
+        } else {
+          setIsListening(false);
+        }
       };
 
       recognition.start();
     } catch (err) {
       console.warn('Speech recognition start failed:', err);
       setIsListening(false);
+      isListeningRef.current = false;
     }
   };
 
   const stopListening = () => {
+    isListeningRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -356,19 +372,32 @@ export function StudyPage({ id }: StudyPageProps) {
   const loadExamContent = useCallback(async (text: string, lang: 'en' | 'ta') => {
     setAiLoading(true);
     setAiError(null);
+    let loadedContent = false;
+
     try {
       const geminiResult = await fetchGeminiExamQA(text, lang);
-      setGeminiData(geminiResult);
-
-      const groqResult = await fetchGroqStudyData(text);
-      setGroqData(groqResult);
+      if (geminiResult) {
+        setGeminiData(geminiResult);
+        loadedContent = true;
+      }
     } catch (err) {
-      console.warn('AI Loading warning:', err);
-      const msg = err instanceof Error ? err.message : 'AI could not process this document.';
-      setAiError(msg);
-    } finally {
-      setAiLoading(false);
+      console.warn('Gemini Exam Q&A fetch notice:', err);
     }
+
+    try {
+      const groqResult = await fetchGroqStudyData(text);
+      if (groqResult) {
+        setGroqData(groqResult);
+        loadedContent = true;
+      }
+    } catch (err) {
+      console.warn('Groq quiz generation notice:', err);
+    }
+
+    if (!loadedContent) {
+      setAiError('Could not process this document. Please ensure the uploaded material contains readable text.');
+    }
+    setAiLoading(false);
   }, []);
 
   useEffect(() => {
@@ -415,18 +444,75 @@ export function StudyPage({ id }: StudyPageProps) {
   const questions3List: QuestionSimple[] = geminiData?.questions_3mark || [];
   const questions12List: Question12Mark[] = geminiData?.questions_12mark || [];
 
-  // Curate Top Important Questions across 2, 3, 8, 12 marks
-  const importantQuestions = [
-    ...questions2List.slice(0, 2).map((q) => ({ ...q, markBadge: '2 Marks', markType: '2' as const })),
-    ...questions8List.slice(0, 2).map((q) => ({ ...q, markBadge: '8 Marks', markType: '8' as const })),
-    ...questions12List.slice(0, 2).map((q) => ({
-      id: q.id,
-      question: q.question,
-      answer: q.answer,
-      markBadge: '12 Marks',
-      markType: '12' as const
-    })),
-  ];
+  // Curate strict targeted count of 10 to 15 Important Questions across 12, 8, 3, and 2 marks
+  interface CuratedQuestion {
+    id: number;
+    question: string;
+    answer: string | Question12Mark['answer'];
+    markBadge: string;
+    markType: '12' | '8' | '3' | '2';
+    stars: number;
+    priorityTag: string;
+  }
+
+  const importantQuestions: CuratedQuestion[] = (() => {
+    const list: CuratedQuestion[] = [];
+
+    // 1. 12-Mark Comprehensive Essay Questions (⭐⭐⭐ High-Scoring University Master Essay)
+    questions12List.slice(0, 3).forEach((q) => {
+      list.push({
+        id: q.id,
+        question: q.question,
+        answer: q.answer,
+        markBadge: '12 Marks Essay',
+        markType: '12',
+        stars: q.importance_stars || 3,
+        priorityTag: q.priority_tag || '⭐⭐⭐ High Frequency University Master Essay (12/12)'
+      });
+    });
+
+    // 2. 8-Mark Structured Questions (⭐⭐⭐ Core Part B University Question)
+    questions8List.slice(0, 4).forEach((q) => {
+      list.push({
+        id: q.id,
+        question: q.question,
+        answer: q.answer,
+        markBadge: '8 Marks Structured',
+        markType: '8',
+        stars: q.importance_stars || 3,
+        priorityTag: q.priority_tag || '⭐⭐⭐ Core Part B University Question'
+      });
+    });
+
+    // 3. 3-Mark Conceptual Bridge Questions (⭐⭐ Conceptual Bridge)
+    questions3List.slice(0, 4).forEach((q) => {
+      list.push({
+        id: q.id,
+        question: q.question,
+        answer: q.answer,
+        markBadge: '3 Marks Concept',
+        markType: '3',
+        stars: q.importance_stars || 2,
+        priorityTag: q.priority_tag || '⭐⭐ Repeated Conceptual Question'
+      });
+    });
+
+    // 4. 2-Mark Essential Definition Questions (⭐⭐ Essential Part A Definition)
+    questions2List.slice(0, 5).forEach((q) => {
+      list.push({
+        id: q.id,
+        question: q.question,
+        answer: q.answer,
+        markBadge: '2 Marks Definition',
+        markType: '2',
+        stars: q.importance_stars || 2,
+        priorityTag: q.priority_tag || '⭐⭐ Essential Part A Definition'
+      });
+    });
+
+    // Enforce target count of approximately 10 to 15 questions
+    return list.slice(0, 15);
+  })();
 
   return (
     <div className="space-y-8 animate-fade-up pb-16">
@@ -664,13 +750,19 @@ export function StudyPage({ id }: StudyPageProps) {
 
                       return (
                         <div key={ansKey} className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm space-y-3 transition-all">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                              {q.markBadge}
-                            </span>
-                            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600">
-                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                              High-Priority Exam Topic
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                                {q.markBadge}
+                              </span>
+                              <span className="flex items-center gap-0.5 text-amber-500">
+                                {Array.from({ length: q.stars || 3 }).map((_, sIdx) => (
+                                  <Star key={sIdx} className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                                ))}
+                              </span>
+                            </div>
+                            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                              {q.priorityTag}
                             </span>
                           </div>
 
@@ -702,22 +794,70 @@ export function StudyPage({ id }: StudyPageProps) {
                                   {q.answer}
                                 </div>
                               ) : (
-                                <div className="space-y-3 text-xs sm:text-sm">
+                                <div className="space-y-3.5 text-xs sm:text-sm">
                                   {q.answer?.introduction && (
-                                    <div className="rounded-xl bg-teal-50/70 border border-teal-200 p-3.5">
-                                      <p className="font-bold text-teal-900 mb-1">1. Introduction &amp; Definition:</p>
-                                      <p className="text-stone-800 whitespace-pre-line">{q.answer.introduction}</p>
+                                    <div className="rounded-xl bg-teal-50/70 border border-teal-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-teal-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <FileText className="h-3.5 w-3.5 text-teal-700" />
+                                        1. Introduction &amp; Definition:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.introduction}</p>
                                     </div>
                                   )}
                                   {q.answer?.architecture_types && (
-                                    <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3.5">
-                                      <p className="font-bold text-indigo-900 mb-1">2. Architecture &amp; Key Types:</p>
-                                      <p className="text-stone-800 whitespace-pre-line">{q.answer.architecture_types}</p>
+                                    <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-indigo-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <Layers className="h-3.5 w-3.5 text-indigo-700" />
+                                        2. Architecture &amp; Key Types:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.architecture_types}</p>
+                                    </div>
+                                  )}
+                                  {q.answer?.concrete_example && (
+                                    <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-amber-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <BookOpen className="h-3.5 w-3.5 text-amber-700" />
+                                        3. Real-World Relevance &amp; Example:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.concrete_example}</p>
                                     </div>
                                   )}
                                   {q.answer?.program_code && (
-                                    <div className="rounded-xl bg-stone-900 p-3.5 text-emerald-300 font-mono text-xs overflow-x-auto">
-                                      <pre>{q.answer.program_code}</pre>
+                                    <div className="rounded-xl bg-stone-900 p-3.5 text-emerald-300 font-mono text-xs overflow-x-auto space-y-1 shadow-inner">
+                                      <div className="flex items-center justify-between text-stone-400 pb-1 border-b border-stone-800">
+                                        <span className="text-[11px] font-bold text-teal-400 uppercase flex items-center gap-1.5">
+                                          <Code className="h-3.5 w-3.5" />
+                                          4. Program Implementation
+                                        </span>
+                                      </div>
+                                      <pre className="whitespace-pre leading-relaxed">{q.answer.program_code}</pre>
+                                    </div>
+                                  )}
+                                  {q.answer?.program_output && (
+                                    <div className="rounded-xl bg-stone-950 p-3.5 text-stone-300 font-mono text-xs overflow-x-auto border border-stone-800 space-y-1">
+                                      <span className="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                                        <Terminal className="h-3.5 w-3.5" />
+                                        5. Exact Terminal Output
+                                      </span>
+                                      <pre className="text-stone-200 whitespace-pre leading-relaxed">{q.answer.program_output}</pre>
+                                    </div>
+                                  )}
+                                  {q.answer?.numerical_problem && (
+                                    <div className="rounded-xl bg-purple-50/70 border border-purple-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-purple-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <Calculator className="h-3.5 w-3.5 text-purple-700" />
+                                        6. Numerical / Worked-Out Problem &amp; Solution:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.numerical_problem}</p>
+                                    </div>
+                                  )}
+                                  {q.answer?.tradeoffs_complexity && (
+                                    <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-rose-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <Award className="h-3.5 w-3.5 text-rose-700" />
+                                        7. Advantages, Disadvantages &amp; Complexity:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.tradeoffs_complexity}</p>
                                     </div>
                                   )}
                                 </div>
@@ -1336,10 +1476,11 @@ export function StudyPage({ id }: StudyPageProps) {
               <div ref={chatMessagesEndRef} />
             </div>
 
-            {/* Chat Input Bar with Simple Voice Microphone */}
+            {/* Chat Input Bar with Simple Voice Microphone & Explicit Manual Stop */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (isListening) stopListening();
                 handleSendChat();
               }}
               className="flex items-center gap-2 pt-1"
@@ -1348,15 +1489,28 @@ export function StudyPage({ id }: StudyPageProps) {
               <button
                 type="button"
                 onClick={toggleListening}
-                title={isListening ? 'Listening to speech... Tap to stop' : 'Tap microphone to speak'}
+                title={isListening ? 'Microphone active. Click to stop' : 'Tap microphone to speak'}
                 className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-xs ${
                   isListening
                     ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-2 ring-rose-300'
                     : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
                 }`}
               >
-                {isListening ? <MicOff className="h-4 w-4 text-white" /> : <Mic className="h-4 w-4 text-stone-700" />}
+                {isListening ? <Mic className="h-4 w-4 text-white animate-pulse" /> : <Mic className="h-4 w-4 text-stone-700" />}
               </button>
+
+              {/* Explicit Manual Stop Button next to Mic when recording */}
+              {isListening && (
+                <button
+                  type="button"
+                  onClick={stopListening}
+                  title="Manually end voice recording"
+                  className="px-2.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse"
+                >
+                  <Square className="h-3.5 w-3.5 fill-white" />
+                  <span>Stop</span>
+                </button>
+              )}
 
               <input
                 type="text"
@@ -1364,7 +1518,7 @@ export function StudyPage({ id }: StudyPageProps) {
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder={
                   isListening
-                    ? 'Listening... Speak now...'
+                    ? 'Recording voice... Click Stop when finished.'
                     : language === 'ta'
                     ? 'கேள்வி அல்லது தலைப்பு கேட்கவும்...'
                     : 'Ask any question or diagram...'

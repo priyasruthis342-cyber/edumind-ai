@@ -231,36 +231,35 @@ Generate an exhaustive exam question bank with detailed, high-scoring answers fo
 ${langVoiceGuideline}
 
 STRICT ANNA UNIVERSITY EXAM PATTERN & ANSWER PRESENTATION GUIDELINES:
-1. 2-MARK QUESTIONS (Part A standard):
+1. 2-MARK QUESTIONS (Part A standard - 5 Questions):
    - Strict definition + 2-3 essential key points or formula with unit/example. No fluff.
+   - Mark weightage: 2 stars (⭐⭐) with priority tag.
 
-2. 3-MARK QUESTIONS (Part A / B conceptual bridge):
+2. 3-MARK QUESTIONS (Part A / B conceptual bridge - 4 Questions):
    - Core definition + 3 distinct key points, characteristics, applications or short diagram note.
+   - Mark weightage: 2 stars (⭐⭐) with priority tag.
 
-3. 8-MARK STRUCTURED ESSAY QUESTIONS (Part B University Standard):
-   - Structured answer containing:
-     * Highlighted Definition Box / Core Concept statement.
-     * 4-6 detailed bullet points explaining the working mechanism or architectural principles.
-     * Concrete real-world example and technical breakdown.
-     * If technical/programming: include syntax and clean code snippet with output.
-     * If theoretical/engineering: provide a clear [Diagram Description: ...] placeholder that students can easily draw in exams.
+3. 8-MARK STRUCTURED ESSAY QUESTIONS (Part B University Standard - 4 Questions):
+   - Comprehensive structured answers (~1 page equivalent of detail each) containing:
+     * Highlighted [DEFINITION BOX: ...] statement.
+     * 5-6 detailed bullet points explaining the core mechanism or architecture.
+     * Concrete real-world industrial example and technical breakdown.
+     * Clean compilable code snippet with expected output OR an exam diagram flow.
+     * Key advantages, disadvantages, and usage summary.
+   - Mark weightage: 3 stars (⭐⭐⭐) with priority tag.
 
-4. 12-MARK COMPREHENSIVE UNIVERSITY ESSAY QUESTIONS (Part C full 12/12 scoring model):
-   - DO NOT provide brief summaries. Answers must be deeply comprehensive, multi-layered, and presentation-ready strictly following the 7-Part University Exam Sheet Standard:
-     • Section 1: Introduction & Core Definition
-       - Detailed academic background and a highlighted [DEFINITION BOX: ...] statement.
-     • Section 2: Architectural Scope & Types/Categories (with definition for each type)
-       - Exhaustive breakdown of all types/sub-categories. For EVERY type, provide a bold title, definition, and operating mechanism. Include a [Diagram Description: ...] placeholder.
-     • Section 3: Concrete Example & Real-world Relevance
-       - Concrete real-world industrial or commercial applications (e.g., Netflix streaming, Linux kernel, Google search, banking databases).
-     • Section 4: Full Clean Programming Code (C++/Java/Python)
-       - Complete, compilable, clean code implementation with descriptive comments.
-     • Section 5: Exact Program Output
-       - Exact terminal output produced by executing the program code.
-     • Section 6: Numerical / Example Problem & Worked-out Solution (if applicable to topic)
-       - Concrete problem statement with formula, parameter substitution, step-by-step mathematical/numerical calculation, and final result.
-     • Section 7: Advantages, Disadvantages & Time/Space Complexity
-       - Clear comparison of pros and cons, followed by formal Big-O Time Complexity (Best, Average, Worst) and Space Complexity.
+4. 12-MARK COMPREHENSIVE UNIVERSITY ESSAY QUESTIONS (Part C full 12/12 scoring model - 2 Questions):
+   - Exhaustive university essay standard (~2 to 2.5 pages equivalent of detail each) strictly following the 7-Part University Exam Sheet Standard:
+     • Section 1: Introduction & Core Definition (Detailed academic background and [DEFINITION BOX: ...])
+     • Section 2: Architectural Scope & Types/Categories (Detailed breakdown of ALL types with title, definition, and mechanism for each type + [Diagram Description: ...])
+     • Section 3: Concrete Example & Real-world Relevance (Industrial applications: Netflix, Linux Kernel, Database engines, etc.)
+     • Section 4: Full Clean Programming Code (C++/Java/Python compilable clean code)
+     • Section 5: Exact Program Output (Execution terminal output)
+     • Section 6: Numerical / Worked-out Example Problem (Problem statement, formula, step-by-step substitution, and solution)
+     • Section 7: Advantages, Disadvantages & Time/Space Complexity (Pros, cons, Big-O Time & Space complexity)
+   - Mark weightage: 3 stars (⭐⭐⭐) with priority tag.
+
+TOTAL QUESTIONS REQUIRED: Exactly 15 high-yield exam questions (5 x 2-mark, 4 x 3-mark, 4 x 8-mark, 2 x 12-mark).
 
 OUTPUT FORMAT:
 Return ONLY a valid, parseable JSON object without markdown fences or backticks.
@@ -269,28 +268,30 @@ Schema:
   "chapter_title": "Detected Title of Chapter or Subject",
   "summary": "Comprehensive 3-4 sentence overview of core concepts covered in the text.",
   "questions_2mark": [
-    { "id": 1, "question": "...", "answer": "..." },
-    { "id": 2, "question": "...", "answer": "..." },
-    { "id": 3, "question": "...", "answer": "..." },
-    { "id": 4, "question": "...", "answer": "..." },
-    { "id": 5, "question": "...", "answer": "..." }
+    { "id": 1, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Essential Part A Definition" },
+    { "id": 2, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ High Frequency Exam Topic" },
+    { "id": 3, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Essential Part A Definition" },
+    { "id": 4, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Core Syllabus Formula" },
+    { "id": 5, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ Frequently Repeated Topic" }
   ],
   "questions_3mark": [
-    { "id": 1, "question": "...", "answer": "..." },
-    { "id": 2, "question": "...", "answer": "..." },
-    { "id": 3, "question": "...", "answer": "..." },
-    { "id": 4, "question": "...", "answer": "..." }
+    { "id": 1, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Conceptual Bridge Question" },
+    { "id": 2, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ Repeated University Question" },
+    { "id": 3, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Key Characteristics" },
+    { "id": 4, "question": "...", "answer": "...", "importance_stars": 2, "priority_tag": "⭐⭐ Practical Application Note" }
   ],
   "questions_8mark": [
-    { "id": 1, "question": "...", "answer": "..." },
-    { "id": 2, "question": "...", "answer": "..." },
-    { "id": 3, "question": "...", "answer": "..." },
-    { "id": 4, "question": "...", "answer": "..." }
+    { "id": 1, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ Core Part B University Question" },
+    { "id": 2, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ High-Scoring Structured Essay" },
+    { "id": 3, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ Repeated Analytical Problem" },
+    { "id": 4, "question": "...", "answer": "...", "importance_stars": 3, "priority_tag": "⭐⭐⭐ Architectural Mechanism" }
   ],
   "questions_12mark": [
     {
       "id": 1,
-      "question": "Comprehensive 12-mark university exam essay question?",
+      "question": "Comprehensive 12-mark university exam essay question on core topic?",
+      "importance_stars": 3,
+      "priority_tag": "⭐⭐⭐ High Frequency University Master Essay (12/12)",
       "answer": {
         "introduction": "1. Introduction & Core Definition: Detailed background and [DEFINITION BOX: ...] statement.",
         "architecture_types": "2. Architectural Scope & Types/Categories: Detailed breakdown with bold titles, definitions for each type, and [Diagram Description: System Architecture Flow].",
@@ -300,9 +301,24 @@ Schema:
         "numerical_problem": "6. Numerical/Example Problem & Worked-out Solution: Problem statement, formula, calculation steps, and final result.",
         "tradeoffs_complexity": "7. Advantages, Disadvantages & Time/Space Complexity: Advantages, disadvantages, Time: O(...) and Space: O(...)"
       }
+    },
+    {
+      "id": 2,
+      "question": "Second comprehensive 12-mark university exam essay question on secondary topic/algorithm?",
+      "importance_stars": 3,
+      "priority_tag": "⭐⭐⭐ High Frequency University Master Essay (12/12)",
+      "answer": {
+        "introduction": "1. Introduction & Core Definition: Detailed background and [DEFINITION BOX: ...] statement.",
+        "architecture_types": "2. Architectural Scope & Types/Categories: Detailed breakdown with bold titles, definitions for each type, and [Diagram Description: System Architecture Flow].",
+        "concrete_example": "3. Concrete Example & Real-world Relevance: Real-world industrial context and use-cases.",
+        "program_code": "// 4. Full Clean Programming Code (Java/C++)\npublic class Solution2 {\n    // Code...\n}",
+        "program_output": "5. Exact Program Output:\n[Execution Terminal Output]",
+        "numerical_problem": "6. Numerical/Example Problem & Worked-out Solution: Problem statement, formula, calculation steps, and final result.",
+        "tradeoffs_complexity": "7. Advantages, Disadvantages & Time/Space Complexity: Advantages, disadvantages, Time: O(...) and Space: O(...)"
+      }
     }
   ]
-}`;
+};`;
 
     const rawText = await generateWithGemini(
       `Study Material / PDF Text:\n\n${prompt.trim()}`,
@@ -358,60 +374,145 @@ function generateLocalExamQA(prompt, language = 'en') {
     .filter(s => s.length > 3 && !/^(page|unit|chapter|\d+)/i.test(s));
 
   const title = segments[0] || 'Syllabus & Course Study';
-  const topic1 = segments[1] || segments[0] || 'Core Concepts';
+  const topic1 = segments[1] || segments[0] || 'Core Operational Concepts';
   const topic2 = segments[2] || 'Key Architectural Principles';
-  const topic3 = segments[3] || 'Practical Implementation';
+  const topic3 = segments[3] || 'Algorithmic Complexity & Bounds';
+  const topic4 = segments[4] || 'Practical Systems Implementation';
 
   return {
     chapter_title: title,
     summary: isTamil
       ? `${title} பாடத்திட்டத்தின் முக்கியக் கருத்துக்கள், கொள்கைகள் மற்றும் தேர்வு வினா-விடைகள் கீழே விரிவாகக் கொடுக்கப்பட்டுள்ளன.`
-      : `Comprehensive study breakdown of ${title}, covering essential definitions, core operational principles, and structured examination answers.`,
+      : `Comprehensive syllabus analysis of ${title}, covering essential definitions, core operational principles, structured 8-mark breakdowns, and exhaustive 12-mark university examination essays.`,
     questions_2mark: [
       {
         id: 1,
         question: isTamil ? `${topic1} என்றால் என்ன?` : `Define ${topic1}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Essential Part A Definition',
         answer: isTamil
-          ? `${topic1} என்பது பாடத்திட்டத்தின் அடிப்படையான ஒரு முக்கிய கருத்தாகும். இது முறையான அமைப்பில் செயல்பட வடிவமைக்கப்பட்டுள்ளது.`
-          : `${topic1} is a fundamental component designed to provide structured operations, deterministic memory allocation, and organized processing.`
+          ? `${topic1} என்பது பாடத்திட்டத்தின் அடிப்படையான ஒரு முக்கிய கருத்தாகும். இது முறையான அமைப்பில் தொடக்க செயலாக்கத்தை மேற்கொள்ள வடிவமைக்கப்பட்டுள்ளது.`
+          : `${topic1} is a fundamental computational abstraction designed to provide structured operations, deterministic memory allocation, and organized state transitions.`
       },
       {
         id: 2,
-        question: isTamil ? `${topic2} என்பதன் முக்கியத்துவத்தைக் குறிப்பிடுக.` : `State the primary purpose of ${topic2}.`,
+        question: isTamil ? `${topic2} என்பதன் முதன்மை நோக்கத்தைக் குறிப்பிடுக.` : `State the primary purpose of ${topic2}.`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ High Frequency Exam Topic',
         answer: isTamil
           ? `${topic2} அமைப்பின் செயல்திறன் மற்றும் வளங்களின் பயன்பாட்டை உகந்ததாக்க உதவுகிறது.`
           : `${topic2} optimizes operational throughput, eliminates resource redundancy, and establishes clear algorithmic boundaries.`
+      },
+      {
+        id: 3,
+        question: isTamil ? `${topic3} கால சிக்கல்தன்மையின் முக்கியத்துவம் என்ன?` : `What is the significance of ${topic3}?`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Essential Part A Definition',
+        answer: isTamil
+          ? `இது கணினி அமைப்பின் இயங்கும் வேகத்தையும் வள நுகர்வையும் துல்லியமாகக் கணக்கிட உதவுகிறது.`
+          : `It establishes upper (Big-O) and lower asymptotic bounds, guaranteeing predictable execution latency under peak transaction loads.`
+      },
+      {
+        id: 4,
+        question: isTamil ? `${topic4} நடைமுறை பயன்பாடு ஒன்றைத் தருக.` : `Give a practical real-world application of ${topic4}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Core Syllabus Application',
+        answer: isTamil
+          ? `லினக்ஸ் இயங்குதள நினைவக மேலாண்மை மற்றும் கிளவுட் சேமிப்பக அமைப்புகளில் பயன்படுகிறது.`
+          : `Implemented in cloud-scale storage indexing, Linux kernel memory management, and high-frequency transaction engines.`
+      },
+      {
+        id: 5,
+        question: isTamil ? `${title} அமைப்பின் முதன்மை நன்மை என்ன?` : `State the key architectural advantage of ${title}.`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ Frequently Repeated Topic',
+        answer: isTamil
+          ? `அதிவேக நினைவக அணுகல், எளிய பராமரிப்பு மற்றும் கணிக்கக்கூடிய தரவு ஓட்டத்தை உறுதி செய்கிறது.`
+          : `Ensures deterministic memory layout, modular maintainability, and sub-millisecond data retrieval efficiency.`
       }
     ],
     questions_3mark: [
       {
         id: 1,
         question: isTamil ? `${topic1} என்பதன் மூன்று முக்கியப் பண்புகளை பட்டியலிடுக.` : `List three key characteristics of ${topic1}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Conceptual Bridge Question',
         answer: isTamil
           ? `1. நேரடி மற்றும் வேகமான அணுகல்.\n2. குறைந்த நினைவக விரயம்.\n3. எளிமையான பராமரிப்பு முறை.`
           : `1. Deterministic direct access and bounded execution time.\n2. Minimal memory overhead and structured boundaries.\n3. High modularity and maintainability.`
       },
       {
         id: 2,
-        question: isTamil ? `${topic3} பயன்பாடுகளை விளக்குக.` : `Mention the key applications of ${topic3}.`,
+        question: isTamil ? `${topic2} மற்றும் ${topic3} இடையிலான வேறுபாடுகளைக் குறிப்பிடுக.` : `Distinguish between ${topic2} and ${topic3}.`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ Repeated University Question',
+        answer: isTamil
+          ? `1. ${topic2} கட்டமைப்பு நிலைத்தன்மையை வழங்குகிறது; ${topic3} கணக்கீட்டு செயல்திறனைக் கணக்கிடுகிறது.\n2. ஒன்று வள ஒதுக்கீட்டிலும், மற்றொன்று நேர அளவீட்டிலும் கவனம் செலுத்துகிறது.`
+          : `1. ${topic2} governs structural integrity and resource encapsulation, whereas ${topic3} defines algorithmic bounds.\n2. ${topic2} is compile-time deterministic, whereas ${topic3} addresses runtime asymptotic scale.`
+      },
+      {
+        id: 3,
+        question: isTamil ? `${topic4} பயன்பாடுகளை விளக்குக.` : `Mention the key applications of ${topic4}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Key Characteristics',
         answer: isTamil
           ? `கணினி நினைவக மேலாண்மை, தரவுத் தேடல் அமைப்புகள் மற்றும் நிஜ உலக மென்பொருள் கட்டமைப்புகளில் பயன்படுகிறது.`
           : `Widely implemented in operating system memory management, real-time transaction processing, and enterprise data models.`
+      },
+      {
+        id: 4,
+        question: isTamil ? `${title} அமைப்பின் வரம்புகள் மூன்றை விவரிக்க.` : `Identify three operational limitations of ${title}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Practical Application Note',
+        answer: isTamil
+          ? `1. நிலையான நினைவக ஒதுக்கீடு வரம்புகள்.\n2. சுட்டிகளுக்கான கூடுதல் நினைவக தேவை.\n3. உச்ச சுமைகளில் மீள்வரிசைப்படுத்தல் தாமதம்.`
+          : `1. Fixed continuous allocation boundaries requiring pre-dimensioning.\n2. Reference pointer storage overhead in dynamic variations.\n3. Re-indexing latency during dynamic mutations.`
       }
     ],
     questions_8mark: [
       {
         id: 1,
         question: isTamil ? `${topic1} மற்றும் ${topic2} ஆகியவற்றின் கட்டமைப்பு, செயல்பாட்டு முறை மற்றும் பயன்பாடுகளை விவரிக்க (8 Marks).` : `Explain the architecture, working mechanism, and practical applications of ${topic1} and ${topic2} (8 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ Core Part B University Question',
         answer: isTamil
-          ? `[வரையறை பெட்டி: ${topic1}]\n- கட்டமைப்பு மற்றும் செயல்பாட்டுக் கோட்பாடு.\n- நினைவக அமைப்பு, சுட்டிகள் மற்றும் செயல்முறை வரிசை.\n- நிஜ உலக பயன்பாடுகள் மற்றும் நடைமுறை முக்கியத்துவம்.`
-          : `[DEFINITION BOX: ${topic1}]\n- Architectural flow and foundational operational parameters.\n- Contiguous vs non-contiguous memory management tradeoffs.\n- Clean implementation syntax, error handling boundaries, and real-world industrial relevance.`
+          ? `> **வரையறை பெட்டி (Definition Box):**\n> **${topic1}** என்பது கணினி அறிவியலில் தரவுகளை தொடர்ச்சியான மற்றும் கட்டமைக்கப்பட்ட முறையில் நிர்வகிக்கும் ஒரு முக்கிய வடிவமைப்பாகும்.\n\n### 1. செயல்பாட்டுக் கொள்கை (Working Principle)\n- **படி 1: உள்ளீட்டு ஏற்பு:** ஆரம்பத் தரவு மதிப்புகள் இடையகத்தில் பெறப்பட்டு சரிபார்க்கப்படுகின்றன.\n- **படி 2: நினைவக ஒதுக்கீடு:** நிலையான அல்லது இயக்கவியல் முறையில் நினைவகம் பிரிக்கப்படுகிறது.\n- **படி 3: சுட்டி மேலாண்மை:** சுட்டிகள் (pointers) மூலம் முந்தைய மற்றும் அடுத்த நிலைகள் இணைக்கப்படுகின்றன.\n- **படி 4: வெளியீட்டு விநியோகம்:** முறைப்படுத்தப்பட்ட முடிவுகள் பயன்பாட்டு அடுக்கிற்கு அனுப்பப்படுகின்றன.\n\n### 2. நிரல் மாதிரி & வெளியீடு (Code & Output)\n\`\`\`java\n// 8-Mark University Standard Implementation\npublic class SolutionDemo {\n    public static void main(String[] args) {\n        System.out.println("Executing ${topic1} core mechanism...");\n        int[] values = {10, 20, 30, 40};\n        for (int v : values) System.out.print(v + " -> ");\n        System.out.println("END");\n    }\n}\n\`\`\`\n**வெளியீடு:** \`Executing ${topic1} core mechanism... 10 -> 20 -> 30 -> 40 -> END\`\n\n### 3. நன்மைகள் மற்றும் நிஜ உலக பயன்பாடு\n- **நன்மைகள்:** கணிக்கக்கூடிய அணுகல் வேகம் O(1), குறைந்த நினைவக விரயம்.\n- **பயன்பாடு:** லினக்ஸ் கர்னல் செயல்முறை திட்டமிடல் (Linux Kernel Process Scheduler) மற்றும் கூகுள் குரோம் பிரவுசர் தாவல் மேலாண்மை.`
+          : `> **DEFINITION BOX:**\n> **${topic1}** is an essential architectural paradigm engineered to provide deterministic access, bounded state transitions, and structured memory organization.\n\n### 1. Architectural Scope & Operating Mechanism\n- **Ingestion & Validation:** Incoming requests pass through formal parameter assertion boundaries.\n- **Storage Allocation:** Memory regions are partitioned contiguously or via chained reference pointers.\n- **State Traversal:** Algorithmic pointers update state with deterministic bounded latency.\n- **Resource Reclamation:** Safe deallocation protocols prevent fragmentation and memory leaks.\n\n### 2. University Standard Implementation & Terminal Output\n\`\`\`java\npublic class SystemMechanismDemo {\n    public static void main(String[] args) {\n        System.out.println("=== Initializing ${topic1} ===");\n        int[] buffer = {15, 30, 45, 60};\n        for (int node : buffer) {\n            System.out.println("Processed Node: " + node);\n        }\n        System.out.println("State transition verified successfully.");\n    }\n}\n\`\`\`\n**Terminal Output:**\n\`\`\`text\n=== Initializing ${topic1} ===\nProcessed Node: 15\nProcessed Node: 30\nProcessed Node: 45\nProcessed Node: 60\nState transition verified successfully.\n\`\`\`\n\n### 3. Performance Tradeoffs & Industrial Relevance\n- **Time Complexity:** Search: O(n), Insertion: O(1), Direct Index: O(1).\n- **Industrial Benchmark:** Deployed in Netflix high-throughput streaming caches and Redis in-memory storage.`
+      },
+      {
+        id: 2,
+        question: isTamil ? `${topic2} அமைப்பின் வடிவமைப்பு உத்திகள் மற்றும் நினைவக மேலாண்மையை விவரிக்க (8 Marks).` : `Discuss the design patterns, memory allocation strategies, and trade-offs of ${topic2} (8 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ High-Scoring Structured Essay',
+        answer: isTamil
+          ? `> **வரையறை பெட்டி:**\n> **${topic2}** என்பது வள நுகர்வை குறைத்து இயக்க நேர செயல்திறனை அதிகரிக்கும் ஒரு முறையான வடிவமைப்பு கோட்பாடாகும்.\n\n### 1. முக்கிய வடிவமைப்பு கூறுகள்\n- **நேரடி நினைவக ஒதுக்கீடு:** முன்-ஒதுக்கப்பட்ட நினைவகத் தொகுதிகள் மூலம் துரித அணுகல்.\n- **சுழற்சி இணைப்பு உத்தி:** எல்லைச் சுட்டிகள் மீண்டும் தொடக்க நிலையை அடையும்படி வடிவமைத்தல்.\n- **பிழை தவிர்ப்பு:** எல்லை மீறல்களை (boundary conditions) பாதுகாப்பாகக் கையாளும் வழிமுறைகள்.\n\n### 2. வரைபட வடிவமைப்பு (Diagram Flow)\n[Diagram: Input Stream -> Allocation Controller -> Reference Graph -> Output Pipeline]\n\n### 3. சிக்கல்தன்மை ஆய்வு\n- கால சிக்கல்தன்மை: O(n) சராசரி நிலை.\n- நினைவக சிக்கல்தன்மை: O(1) கூடுதல் நினைவகம்.`
+          : `> **DEFINITION BOX:**\n> **${topic2}** establishes systematic protocols for minimizing computational overhead while guaranteeing data integrity across multi-threaded operations.\n\n### 1. Architectural Pillars\n- **Deterministic Memory Mapping:** Pre-allocates aligned memory blocks, maximizing CPU cache line locality.\n- **Circular Ring Traversal:** Replaces null-pointer boundaries with continuous cyclic transitions.\n- **Fault Containment:** Exception traps capture edge conditions without degrading surrounding system threads.\n\n### 2. Architectural Diagram Flow\n\`\`\`text\n[Client Request] --> [Boundary Controller] --> [Allocated Cache Block] --> [Commit Output]\n\`\`\`\n\n### 3. Algorithmic Bounds & Industrial Deployment\n- **Complexity:** Amortized O(1) for state operations; O(n) for comprehensive restructuring.\n- **Real-World Systems:** Core engine in Apache Kafka commit logs and PostgreSQL write-ahead logging (WAL).`
+      },
+      {
+        id: 3,
+        question: isTamil ? `${topic3} வழிமுறையின் படிநிலை செயல்பாடுகள் மற்றும் கணித சூத்திரங்களை விளக்குக (8 Marks).` : `Illustrate the step-by-step algorithmic procedure and asymptotic complexity of ${topic3} (8 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ Repeated Analytical Problem',
+        answer: isTamil
+          ? `> **வரையறை பெட்டி:**\n> **${topic3}** என்பது படிநிலை செயல்பாடுகளின் வழியாக உகந்த தீர்வை வழங்கும் ஒரு முக்கியமான வழிமுறையாகும்.\n\n### 1. படிநிலை செயல்முறை\n- **படி 1 (தொடக்க நிலை):** சுட்டிகள் பூஜ்ஜிய மதிப்பில் அமைக்கப்படுகின்றன.\n- **படி 2 (ஒப்பீடு & வரிசைப்படுத்தல்):** தற்போதைய மதிப்பு இலக்கு மதிப்புடன் ஒப்பிடப்படுகிறது.\n- **படி 3 (இடமாற்றம்):** நிபந்தனை பூர்த்தியானால் மதிப்புகள் முறையாகப் பரிமாறப்படுகின்றன.\n- **படி 4 (முடிவு):** அனைத்து நிலைகளும் சரிபார்க்கப்பட்டு இறுதி முடிவு எட்டப்படுகிறது.\n\n### 2. கணித சூத்திரம் & பகுப்பாய்வு\n- சுழற்சிகளின் எண்ணிக்கை = n * (n - 1) / 2\n- கால சிக்கல்தன்மை: Best: O(n), Average: O(n log n), Worst: O(n^2).`
+          : `> **DEFINITION BOX:**\n> **${topic3}** provides an optimal mathematical algorithm engineered to partition, traverse, and order data collections under provable asymptotic constraints.\n\n### 1. Algorithmic Procedure\n- **Step 1 (Pivot Selection):** Establish boundary indices and identify median candidate.\n- **Step 2 (Partitioning Phase):** Reorder elements such that values strictly adhere to the invariant condition.\n- **Step 3 (Recursive Sub-division):** Apply inductive divide-and-conquer to remaining segments.\n- **Step 4 (Termination Guarantee):** Halts when sub-arrays reach unitary length 1.\n\n### 2. Asymptotic Bounds & Space Invariants\n- **Recurrence Relation:** T(n) = 2T(n/2) + O(n) => By Master Theorem: T(n) = O(n log n).\n- **Auxiliary Space:** O(log n) stack frame depth, strictly preventing stack exhaustion.`
+      },
+      {
+        id: 4,
+        question: isTamil ? `${topic4} நடைமுறை பொறியியல் அமைப்புகளில் எவ்வாறு செயல்படுத்தப்படுகிறது? (8 Marks)` : `Explain how ${topic4} is engineered in production systems and enterprise software (8 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ Architectural Mechanism',
+        answer: isTamil
+          ? `> **வரையறை பெட்டி:**\n> **${topic4}** என்பது பெரிய அளவிலான உற்பத்தி மென்பொருட்களில் நம்பகத்தன்மை மற்றும் அளவிடுதலை உறுதி செய்யும் ஒரு முக்கிய தொழில்நுட்பமாகும்.\n\n### 1. உற்பத்தி கட்டமைப்பு\n- **சுமை பகிர்வு (Load Balancing):** வினவல்களை பல முனைகளுக்கு சமமாகப் பகிர்ந்தளிக்கிறது.\n- **நினைவக தேக்கம் (In-memory Caching):** அடிக்கடி அணுகப்படும் தரவுகளை ரேமில் தேக்கி வைக்கிறது.\n- **பிழை மீட்பு (Disaster Recovery):** தரவு இழப்பின்றி தானியங்கி மீட்பு முறைகளை வழங்குகிறது.\n\n### 2. நிஜ உலக பயன்கள்\n- கூகுள் சர்ச் அட்டவணைப்படுத்தல் மற்றும் அமேசான் மின்வணிக அமைப்புகள்.`
+          : `> **DEFINITION BOX:**\n> **${topic4}** represents enterprise-grade production engineering, reconciling scalability, fault tolerance, and sub-second transaction guarantees.\n\n### 1. Production Architecture Layers\n- **Dynamic Load Distribution:** Balances incoming worker threads across distributed nodes.\n- **Multi-Level Cache Hierarchy:** L1/L2 CPU cache alignment reduces RAM bus saturation.\n- **Zero-Downtime Resilience:** Circuit breakers and health probes guarantee continuous service availability.\n\n### 2. Industrial Reference\n- Powering Amazon AWS DynamoDB micro-partitions and Google Spanner global timestamp ordering.`
       }
     ],
     questions_5mark: [
       {
         id: 1,
         question: isTamil ? `${topic1} மற்றும் ${topic2} பற்றி விரிவாக வரைக.` : `Explain the working mechanism and principles of ${topic1}.`,
+        importance_stars: 2,
+        priority_tag: '⭐⭐ Core Syllabus Topic',
         answer: isTamil
           ? `[வரையறை பெட்டி: ${topic1}]\n- கட்டமைப்பு மற்றும் செயல்பாட்டுக் கோட்பாடு.\n- நினைவக அமைப்பு மற்றும் செயல்முறை வரிசை.\n- நன்மைகள் மற்றும் நடைமுறை முக்கியத்துவம்.`
           : `[DEFINITION BOX: ${topic1}]\n- Architectural flow and foundational operational parameters.\n- Contiguous vs non-contiguous memory management tradeoffs.\n- Implementation syntax, error handling, and performance metrics.`
@@ -421,23 +522,24 @@ function generateLocalExamQA(prompt, language = 'en') {
       {
         id: 1,
         question: isTamil
-          ? `${title} - முழுமையான கட்டமைப்பு, செயல்பாட்டு முறை மற்றும் நிஜ உலக பயன்பாடுகளை விவரிக்க.`
-          : `Discuss in detail the architecture, working mechanism, and practical applications of ${title}.`,
+          ? `${title} - முழுமையான கட்டமைப்பு, செயல்பாட்டு முறை, நிரல் மற்றும் நிஜ உலக பயன்பாடுகளை விவரிக்க (12 Marks).`
+          : `Discuss in detail the architecture, working mechanism, full code implementation, and real-world applications of ${title} (12 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ High Frequency University Master Essay (12/12)',
         answer: {
-          // 7-Part Professional University Exam Sheet Structure
           introduction: isTamil
-            ? `> **வரையறை பெட்டி (Definition Box):**\n> **${title}** என்பது முறையான வடிவமைப்பு, தரவு மேலாண்மை மற்றும் கட்டமைப்பு ரீதியான செயலாக்கத்தை வழங்கும் நவீன பொறியியலின் ஒரு முக்கிய கோட்பாடாகும்.\n\n${title} பல்கலைக்கழக தேர்வுகளில் கேட்கப்படும் ஒரு முதன்மையான வினாவாகும். இது அமைப்புகளின் நிலைத்தன்மை மற்றும் வேகத்தை உறுதி செய்கிறது.`
+            ? `> **வரையறை பெட்டி (Definition Box):**\n> **${title}** என்பது முறையான வடிவமைப்பு, தரவு மேலாண்மை மற்றும் கட்டமைப்பு ரீதியான செயலாக்கத்தை வழங்கும் நவீன பொறியியலின் ஒரு முதன்மை கோட்பாடாகும்.\n\n${title} பல்கலைக்கழக தேர்வுகளில் கேட்கப்படும் ஒரு தலையாய வினாவாகும். இது அமைப்புகளின் நிலைத்தன்மை, நினைவக ஒருமைப்பாடு மற்றும் வேகத்தை உறுதி செய்கிறது.`
             : `> **DEFINITION BOX:**\n> **${title}** is an essential computational paradigm and structural framework designed to manage resources, organize state transitions, and guarantee formal execution correctness.\n\n${title} forms the bedrock of modern software and hardware systems, ensuring deterministic operations and optimal performance under real-world constraints.`,
 
           architecture_types: isTamil
-            ? `**முக்கிய வகைகள் மற்றும் கட்டமைப்பு பிரிவுகள் (Types & Architecture):**\n- **நிலை 1: தொடக்க நிலை மற்றும் உள்ளீடு (Primitive / Sequential Phase):** தொடக்கத் தரவுகளை சேமித்து அடிப்படை செயலாக்கத்தை மேற்கொள்கிறது.\n- **நிலை 2: இடைநிலை இணைப்பு மற்றும் மாற்றங்கள் (Linked / Dynamic Phase):** சுட்டிகள் (pointers) மற்றும் நினைவக முகவரிகளைப் பயன்படுத்தி நெகிழ்வான இணைப்பை வழங்குகிறது.\n- **நிலை 3: சுழற்சி மற்றும் பல பரிமாண கட்டமைப்பு (Circular / Multi-Dimensional Phase):** வளைய அமைப்புகள் மற்றும் அணிவரிசைகளில் தரவுகளை ஒழுங்குபடுத்துகிறது.\n\n[Diagram Description: System Architecture Flowchart — Input Buffer -> Core Processing Engine -> State Cache -> Output Stream]`
+            ? `**முக்கிய வகைகள் மற்றும் கட்டமைப்பு பிரிவுகள் (Types & Architecture):**\n- **1. நிலை 1: தொடக்க நிலை (Static / Primitive Structure):** தொடக்கத் தரவுகளை சேமித்து வரிசைப்படுத்தப்பட்ட O(1) நேரடி அணுகலை வழங்குகிறது.\n- **2. நிலை 2: சுட்டி இணைப்பு நிலை (Dynamic Pointer-Linked Structure):** சுட்டிகள் (pointers) மூலம் நெகிழ்வான நினைவக ஒதுக்கீட்டை வழங்குகிறது.\n- **3. நிலை 3: சுழற்சி மற்றும் பல பரிமாண கட்டமைப்பு (Circular / Multi-Dimensional Variant):** வட்ட வடிவ இணைப்பில் சுழற்சி இடையகங்களை (ring buffers) உருவாக்குகிறது.\n\n[Diagram Description: System Architecture Flowchart — Input Buffer -> Core Processing Engine -> State Cache -> Output Stream]`
             : `**Architectural Scope & Structural Categories (with Definitions):**\n- **1. Contiguous / Static Structure:** Memory is allocated in contiguous physical blocks with fixed boundaries, enabling deterministic O(1) indexed access.\n- **2. Dynamic / Pointer-Linked Structure:** Memory is allocated on-demand in heap blocks connected through reference pointers, eliminating resizing overhead.\n- **3. Recursive / Circular Variant:** The tail node cycles back to the origin, creating a seamless round-robin ring buffer without null terminators.\n\n[Diagram Description: Structural Architecture Diagram — Input Register -> Index Allocator -> Pointer Graph -> Output Terminal]`,
 
           concrete_example: isTamil
             ? `**நிஜ உலக பயன்பாடுகள் (Real-world Relevance):**\n1. **Google தேடுபொறி & தரவு அட்டவணைப்படுத்தல்:** இணைய பக்கங்களை விரைவாக வரிசைப்படுத்தவும் மீட்டெடுக்கவும் பயன்படுகிறது.\n2. **Linux ஆப்பரேட்டிங் சிஸ்டம்:** நினைவக ஒதுக்கீடு, செயல்முறை திட்டமிடல் (process scheduling) மற்றும் வன்பொருள் சாதன இயக்கிகளில் நேரடியாகப் பயன்படுகிறது.\n3. **Netflix & YouTube Streaming:** வீடியோ தரவுகளை இடையகத்தில் (buffer) சீராக ஏற்றி பிழையின்றி இயக்க உதவுகிறது.`
             : `**Concrete Example & Real-World Relevance:**\n1. **Cloud-Scale Streaming (Netflix / Spotify):** Circular ring buffers manage live audiovisual streaming packets, preventing jitter and buffer underruns.\n2. **Linux Kernel Task Scheduling:** Priority lists and runqueues manage millions of context switches per second across multicore processors.\n3. **Database Transaction Logs (PostgreSQL / SQLite):** Sequential and chained structures record write-ahead logs (WAL) to guarantee ACID compliance.`,
 
-          program_code: `// 4. Full Clean Programming Code (Java / C++ Standard Implementation)\npublic class ExamSolution {\n    public static void main(String[] args) {\n        System.out.println("=== Demonstration of ${title} ===");\n        int[] dataset = {12, 24, 36, 48, 60};\n        \n        // Step-by-step processing\n        int sum = 0;\n        for (int value : dataset) {\n            sum += value;\n            System.out.println("Processed Element: " + value + " | Running Total: " + sum);\n        }\n        \n        System.out.println("Processing completed successfully. Total: " + sum);\n    }\n}`,
+          program_code: `// 4. Full Clean Programming Code (Java Standard Implementation)\npublic class ExamSolution {\n    public static void main(String[] args) {\n        System.out.println("=== Demonstration of ${title} ===");\n        int[] dataset = {12, 24, 36, 48, 60};\n        \n        // Step-by-step processing\n        int sum = 0;\n        for (int value : dataset) {\n            sum += value;\n            System.out.println("Processed Element: " + value + " | Running Total: " + sum);\n        }\n        \n        System.out.println("Processing completed successfully. Total: " + sum);\n    }\n}`,
 
           program_output: `=== Demonstration of ${title} ===\nProcessed Element: 12 | Running Total: 12\nProcessed Element: 24 | Running Total: 36\nProcessed Element: 36 | Running Total: 72\nProcessed Element: 48 | Running Total: 120\nProcessed Element: 60 | Running Total: 180\nProcessing completed successfully. Total: 180`,
 
@@ -447,35 +549,40 @@ function generateLocalExamQA(prompt, language = 'en') {
 
           tradeoffs_complexity: isTamil
             ? `**நன்மைகள், வரம்புகள் மற்றும் கால/நினைவக சிக்கல்தன்மை (Trade-offs & Complexity):**\n- **நன்மைகள்:** கணிக்கக்கூடிய வேகம், எளிய பராமரிப்பு, அதிக நம்பகத்தன்மை.\n- **வரம்புகள்:** நிலையான வரம்புகள் அல்லது சுட்டிகளுக்கு கூடுதல் நினைவக தேவை.\n- **கால சிக்கல்தன்மை (Time Complexity):** சிறந்த நிலை O(1), சராசரி நிலை O(n), மோசமான நிலை O(n).\n- **நினைவக சிக்கல்தன்மை (Space Complexity):** O(1) துணை நினைவகம், O(n) சேமிப்பக நினைவகம்.`
-            : `**Advantages, Disadvantages & Time/Space Complexity:**\n- **Advantages:** Deterministic access latency, minimal computational overhead, cache-friendly spatial locality.\n- **Disadvantages:** Rigid boundary allocation or pointer memory overhead (4/8 bytes per reference).\n- **Time Complexity:** Best Case: O(1) | Average Case: O(n) | Worst Case: O(n)\n- **Space Complexity:** Auxiliary Space: O(1) | Total Space: O(n)`,
+            : `**Advantages, Disadvantages & Time/Space Complexity:**\n- **Advantages:** Deterministic access latency, minimal computational overhead, cache-friendly spatial locality.\n- **Disadvantages:** Rigid boundary allocation or pointer memory overhead (4/8 bytes per reference).\n- **Time Complexity:** Best Case: O(1) | Average Case: O(n) | Worst Case: O(n)\n- **Space Complexity:** Auxiliary Space: O(1) | Total Space: O(n)`
+        }
+      },
+      {
+        id: 2,
+        question: isTamil
+          ? `${topic2} மற்றும் ${topic3} ஆகியவற்றின் முழுமையான தொழில்நுட்ப ஒப்பீடு, வடிவமைப்பு வரைபடம் மற்றும் அல்காரிதம் பகுப்பாய்வு (12 Marks).`
+          : `Provide an exhaustive technical evaluation, structural architectural diagram, and computational complexity analysis of ${topic2} vs ${topic3} (12 Marks).`,
+        importance_stars: 3,
+        priority_tag: '⭐⭐⭐ High Frequency University Master Essay (12/12)',
+        answer: {
+          introduction: isTamil
+            ? `> **வரையறை பெட்டி:**\n> **${topic2} மற்றும் ${topic3}** இரண்டும் நவீன மென்பொருள் மற்றும் வன்பொருள் கட்டமைப்புகளின் தூண்களாக விளங்குகின்றன.\n\nபல்கலைக்கழக தேர்வுகளில் இந்த ஒப்பீட்டு வினா அடிக்கடி கேட்கப்படும் ஒரு முக்கியமான பகுதியாகும்.`
+            : `> **DEFINITION BOX:**\n> Comparative evaluation of **${topic2}** versus **${topic3}** establishes the architectural foundation for selecting structural vs algorithmic trade-offs in distributed enterprise systems.`,
 
-          // Legacy fields for backward compatibility
-          headings: [
-            {
-              title: isTamil ? `1. கட்டமைப்பு மற்றும் செயல்பாட்டுக் கொள்கை [Diagram: System Block Flow]` : `1. Architectural Framework & Block Diagram [Diagram: Block Diagram Flow]`,
-              content: isTamil
-                ? `அமைப்பின் முக்கிய கூறுகள் ஒன்றோடொன்று ஒருங்கிணைந்து செயல்படும் விதத்தை இந்த கட்டமைப்பு விளக்குகிறது.\n- முதன்மை கட்டுப்பாட்டு தொகுதி\n- தரவு செயலாக்க நிலை\n- முடிவுகள் சரிபார்ப்பு`
-                : `Comprehensive structural decomposition illustrating operational phases:\n- Input ingestion and validation boundaries.\n- Core processing logic and state transitions.\n- Output serialization and resource deallocation.`
-            },
-            {
-              title: isTamil ? `2. தொழில்நுட்ப செயல்முறை மற்றும் நிரல் மாதிரி (Technical Implementation & Code)` : `2. Technical Implementation, Code Logic & Execution Parameters`,
-              content: isTamil
-                ? `நடைமுறை செயல்படுத்தல் மற்றும் நிரல் முறைகள்:\n\`\`\`java\n// Sample Implementation\npublic class SystemDemo {\n    public static void main(String[] args) {\n        System.out.println("Executing ${title}...");\n    }\n}\n\`\`\``
-                : `Algorithmic specification with complexity analysis:\n\`\`\`java\n// University Exam Standard Implementation\npublic class ImplementationDemo {\n    public static void main(String[] args) {\n        // Demonstrating ${title} logic\n        System.out.println("${title} initialized successfully.");\n    }\n}\n\`\`\`\nTime Complexity: O(n) | Space Complexity: O(1)`
-            },
-            {
-              title: isTamil ? `3. நன்மைகள் மற்றும் வரம்புகள் (Trade-offs & Advantages)` : `3. Analytical Evaluation & Trade-offs`,
-              content: isTamil
-                ? `- நன்மைகள்: அதிக செயல்திறன், எளிய பராமரிப்பு.\n- வரம்புகள்: சில குறிப்பிட்ட சூழ்நிலைகளில் அதிக நினைவகத் தேவை.`
-                : `- Advantages: High throughput, predictable operational latency, deterministic space complexity.\n- Limitations: Requires upfront configuration and boundary sanitization.`
-            }
-          ],
-          examples: isTamil
-            ? `Google தேடுபொறி, லினக்ஸ் கர்னல் நினைவக மேலாண்மை மற்றும் பெரிய அளவிலான மென்பொருட்களில் பயன்படுகிறது.`
-            : `Implemented in cloud-scale distributed caches (Netflix), Linux kernel scheduling, and automotive electronic control units.`,
-          conclusion: isTamil
-            ? `${title} பல்கலைக்கழக தேர்வுகளில் கேட்கப்படும் முதன்மையான 12-மதிப்பெண் வினாவாகும். தலைப்புகளையும் வரைபடங்களையும் சரியாக வரைந்து அதிக மதிப்பெண் பெறலாம்.`
-            : `${title} constitutes a cornerstone topic in university examination papers. Clear diagrammatic presentation paired with structured derivations ensures maximum scoring.`
+          architecture_types: isTamil
+            ? `**கட்டமைப்பு பிரிவுகள் (Comparative Architecture):**\n- **முறை A (${topic2}):** நேரடி நினைவக ஒதுக்கீடு, தொடர்ச்சியான அணுகல், அதிக வேக கேச்சிங்.\n- **முறை B (${topic3}):** நெகிழ்வான சுட்டிகள், தேவைக்கேற்ப நினைவக விரிவாக்கம், துண்டாடல் தடுப்பு.\n\n[Diagram Description: Structural Architecture Comparison — Branch A (Contiguous Linear) vs Branch B (Dynamic Graph Traversal)]`
+            : `**Structural Decomposition & Architectural Comparison:**\n- **System Paradigm A (${topic2}):** Sequential execution pipeline with pre-allocated hardware caches.\n- **System Paradigm B (${topic3}):** Dynamic asynchronous dispatch model with priority runqueues.\n\n[Diagram Description: Comparative Architecture Diagram — Flow A (Deterministic Core) vs Flow B (Dynamic Event Loop)]`,
+
+          concrete_example: isTamil
+            ? `**தொழில்துறை உதாரணங்கள்:**\n1. **PostgreSQL & MySQL:** அட்டவணை மற்றும் குறியீட்டு தேடல் கட்டமைப்பில் பயன்படுகிறது.\n2. **Android & iOS ரன்டைம்:** பயன்பாடுகளின் நினைவக மேலாண்மை மற்றும் நிகழ்வு வரிசைகளில் பயன்படுகிறது.`
+            : `**Industrial Benchmarks:**\n1. **Relational Storage Engines (MySQL InnoDB / RocksDB):** Managing index traversals and B-Tree node splits.\n2. **High-Frequency Trading Engines:** Utilizing zero-copy buffers to achieve sub-microsecond transaction settlement.`,
+
+          program_code: `// Comparative Demonstration Algorithm (Java Standard)\npublic class ComparativeAnalysis {\n    public static void main(String[] args) {\n        System.out.println("Comparing ${topic2} vs ${topic3}");\n        long start = System.nanoTime();\n        // Benchmarking operational cycles\n        int sum = 0;\n        for (int i = 1; i <= 1000; i++) sum += i;\n        long duration = System.nanoTime() - start;\n        System.out.println("Execution Cycles Complete. Metric: " + duration + " ns");\n    }\n}`,
+
+          program_output: `Comparing ${topic2} vs ${topic3}\nExecution Cycles Complete. Metric: 420 ns`,
+
+          numerical_problem: isTamil
+            ? `**கணித மாதிரி வினா:**\n- வினா: n = 1000 உறுப்புகள் கொண்ட தரவுத்தொகுப்பில் தேடல் செயல்பாட்டிற்கான அதிகபட்ச ஒப்பீடுகளைக் கணக்கிடுக.\n- சூத்திரம்: ஒப்பீடுகள் = log2(n)\n- தீர்வு: log2(1000) ≈ 10 ஒப்பீடுகள். அதிகபட்ச வேகம் உறுதி செய்யப்படுகிறது.`
+            : `**Numerical Problem & Worked-Out Solution:**\n- Problem: For an input size n = 1024, calculate the theoretical comparison count difference between O(n) linear vs O(log n) logarithmic traversal.\n- Formula: Linear = n = 1024; Logarithmic = log2(1024) = 10\n- Evaluation: Logarithmic reduces search operations from 1024 steps to only 10 steps (102.4x speedup).`,
+
+          tradeoffs_complexity: isTamil
+            ? `**சிக்கல்தன்மை ஒப்பீடு:**\n- முறை A: O(1) அணுகல், O(n) மாற்றம்.\n- முறை B: O(log n) அணுகல், O(1) செருகல்.\n- முடிவு: தேவையைப் பொறுத்து சரியான முறையைத் தேர்வு செய்ய வேண்டும்.`
+            : `**Analytical Trade-offs & Complexity:**\n- Paradigm A: Search O(1) to O(n) | Space O(1) static | Best for read-heavy workloads.\n- Paradigm B: Search O(log n) | Space O(n) dynamic | Best for mutation-intensive workloads.`
         }
       }
     ]
@@ -500,24 +607,45 @@ router.post('/chat', async (req, res) => {
 
     const isTamil = language === 'ta';
     const langGuideline = isTamil
-      ? `LANGUAGE: TAMIL (இயல்பான பேச்சுத் தமிழ் & தெளிவான கல்வித் தமிழ்)
-- Use natural modern spoken Tamil (இயல்பான தமிழ்) with clear explanations.
+      ? `LANGUAGE REQUIREMENT: TAMIL (இயல்பான பேச்சுத் தமிழ் & தெளிவான கல்வித் தமிழ்)
+- Use natural modern conversational Tamil (இயல்பான தமிழ்) with clear explanations.
 - Include English technical terms alongside Tamil (e.g. "Linked List (இணைக்கப்பட்ட பட்டியல்)").`
-      : `LANGUAGE: ENGLISH
-- Clear, professional, Indian University academic standard (Anna University pattern).`;
+      : `LANGUAGE REQUIREMENT: MULTILINGUAL AUTO-DETECTION
+- Automatically detect the input language and native script (Tamil, English, Hindi, Telugu, Malayalam, Kannada, etc.).
+- Respond fluently in the user's matching language style and native script.
+- If the user writes or speaks in English, reply in professional Indian University academic English.`;
 
     const systemInstruction = `You are an advanced, context-aware AI study assistant inside EduMind AI, functioning with the intelligence and capabilities of Gemini and ChatGPT.
 
 Core Directives:
-1. Zero Hardcoded Templates: Never force a rigid, pre-set template (like mandatory definition + example + code + etc.) unless the user explicitly asks for a full breakdown. Always adapt your response structure dynamically based on the user's exact request.
-2. Intent Analysis & Accuracy: Deeply analyze what the user is asking:
-   - If the user asks for simple English or simple words, deliver explanations in clean, accessible, and intuitive words.
-   - If the user asks for specific elements (e.g. definition + program + output + types), provide exactly those requested elements directly and thoroughly.
-   - If they want just an example, provide only the example.
-   - If they want a specific concept, focus entirely on that concept without drifting.
-   - Only provide a full 7-part 12-mark university exam format when the user explicitly requests an exam sheet or comprehensive breakdown.
-3. Image & Visual Generation / Diagrams: If a user requests a visual aid, diagram representation, flowchart, hierarchy, or a hand-written style note layout (e.g., 'Draw/generate a notes image for X' or 'Diagram for X'), output a clean Markdown-based structured layout, ASCII box diagram, or Mermaid diagram (\`\`\`mermaid ... \`\`\`) that can be rendered visually on the frontend UI.
-4. Conversational & Natural: Maintain a helpful, engaging, and human-like conversational tone at all times.
+1. Strict User Intent & Zero Hardcoded Templates:
+   - Never force a rigid, pre-set template unless the user explicitly asks for a full breakdown.
+   - Deeply analyze what the user is asking:
+     * If the user asks for simple English or simple words, deliver explanations in clean, accessible, and intuitive words.
+     * If the user asks for specific elements (e.g. definition + program + output + types), provide exactly those requested elements directly and thoroughly.
+     * If they want just an example, provide only the example.
+     * If they want a specific concept, focus entirely on that concept without drifting.
+   - 8-Mark Structured Answer: When an 8-mark answer is requested, provide a comprehensive structured breakdown spanning approximately 1 page of detail, featuring a highlighted [DEFINITION BOX: ...], 5-6 bullet points of working principles/mechanisms, practical example, and clean code or exam diagram.
+   - 12-Mark University Essay: When a 12-mark answer is requested, provide an exhaustive university-essay standard answer spanning approximately 2 to 2.5 pages of detailed explanation following the full 7-Part University Exam Sheet Standard:
+     1. Introduction & Formal Definition Box
+     2. Architectural Scope & Types/Categories (with definition for each type)
+     3. Concrete Example & Real-World Industrial Relevance
+     4. Full Clean Programming Code (Java/C++/Python)
+     5. Exact Terminal Output
+     6. Numerical / Worked-Out Example Problem & Solution
+     7. Advantages, Disadvantages & Big-O Time/Space Complexity
+
+2. Multilingual Support:
+   - Deeply analyze user intent across any spoken or written language (Tamil, English, Hindi, Telugu, Malayalam, Kannada, etc.).
+   - Respond fluently in the matching language style and native script (e.g. தமிழ் for Tamil, हिन्दी for Hindi, తెలుగు for Telugu, മലയാളம் for Malayalam) without hardcoded fallback templates.
+   - Always preserve standard technical keywords clearly alongside native script.
+
+3. Visual Diagrams & Flowcharts (Mermaid.js):
+   - When a user requests a flowchart, diagram, architecture, or visual mapping, never output raw descriptive text lines.
+   - Generate precise, renderable visual structures using valid Mermaid.js code blocks (\`\`\`mermaid ... \`\`\`) so the frontend renders actual interactive SVG diagrams.
+
+4. Conversational & Natural:
+   - Maintain a helpful, engaging, and human-like conversational tone at all times.
 
 ${langGuideline}
 

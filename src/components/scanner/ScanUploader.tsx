@@ -2,7 +2,6 @@ import { useRef, useState, type DragEvent } from 'react';
 import { Camera, FileUp, ImagePlus, Loader2, Sparkles, UploadCloud } from 'lucide-react';
 import { useApp } from '@/context/useApp';
 import { extractTextFromFile } from '@/lib/extractText';
-import { normalizeText } from '@/lib/textAnalysis';
 import { ErrorNotice } from '@/components/ui';
 
 export type IntakeKind = 'pdf' | 'image' | 'notes';
@@ -40,23 +39,24 @@ export function ScanUploader({
 
   const readFile = async (file: File) => {
     if (file.size > MAX_FILE_BYTES) {
-      setError(null); // எரரைத் தவிர்க்க வைப்பது
+      setError('File size exceeds the 25 MB limit. Please upload a smaller file.');
+      return;
     }
     setExtracting(true);
     setError(null);
     try {
-      const result = await extractTextFromFile(file).catch(() => ({
-        text: file.name || "Sample scanned document text for learning",
-        kind: 'notes' as IntakeKind
-      }));
-      const cleaned = normalizeText(result.text || "Sample content");
-      setText(cleaned || "Sample content for study notes");
+      const result = await extractTextFromFile(file);
+      if (!result.text || !result.text.trim()) {
+        throw new Error('No readable text could be found in the document. Please ensure the file contains legible text or scanned pages.');
+      }
+      // Preserve full A to Z un-truncated text
+      const extractedFullText = result.text.trim();
+      setText(extractedFullText);
       setFileName(file.name);
       setKind(result.kind === 'text' ? 'notes' : result.kind);
-    } catch {
-      // ஏபிஐ கீ அல்லது எக்ச்ட்ராக்ட் எரர் வந்தாலும் அப்ளிகேஷன் நிக்காமல் இருக்க Fallback டெக்ஸ்ட்
-      setText("Sample text extracted successfully for analysis.");
-      setFileName(file.name || "notes.txt");
+    } catch (err) {
+      console.error('File OCR/extraction error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to extract text from document.');
     } finally {
       setExtracting(false);
     }
@@ -70,21 +70,24 @@ export function ScanUploader({
   };
 
   const handleSubmit = async () => {
-    // டெக்ஸ்ட் இல்லையென்றாலும் டீஃபால்ட்டாக ஒரு டெக்ஸ்ட்டை எடுத்துக்கொண்டு அடுத்த பக்கத்திற்குச் செல்ல வழிவகுத்தல்
-    const finalContent = text.trim() ? text : "General study notes and important concepts for examination preparation.";
-    const cleaned = normalizeText(finalContent);
+    const finalContent = text.trim();
+    if (!finalContent) {
+      setError('Please upload a document, photo, or paste notes to continue.');
+      return;
+    }
     
     setSubmitting(true);
     setError(null);
     try {
       await onSubmit({ 
-        text: cleaned, 
-        fileName: fileName || 'Pasted notes', 
+        text: finalContent, 
+        fileName: fileName || 'Uploaded Study Material', 
         kind, 
-        chapterHint: chapterHint.trim() || courseLabel || 'Chapter 1' 
+        chapterHint: chapterHint.trim() || courseLabel || 'Syllabus Chapter' 
       });
-    } catch {
-      // எரர் எதையும் தராமல் நேரடியாக மை ஸ்டடி பக்கத்திற்கு நேவிகேட் செய்ய வழிவகுக்கலாம்
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError(err instanceof Error ? err.message : 'Could not process submission.');
     } finally {
       setSubmitting(false);
     }

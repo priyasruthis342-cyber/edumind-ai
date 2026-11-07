@@ -28,6 +28,7 @@
     "groq-sdk": "^1.6.0",
     "json5": "^2.2.3",
     "lucide-react": "^0.446.0",
+    "mermaid": "^12.3.0",
     "mongodb-memory-server": "^11.3.0",
     "mongoose": "^9.11.4",
     "msedge-tts": "^2.1.1",
