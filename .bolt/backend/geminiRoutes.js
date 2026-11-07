@@ -171,15 +171,25 @@ function safeParseJson(raw) {
     return JSON.parse(cleaned);
   } catch (e1) {
     try {
-      return JSON.parse(fixJsonString(cleaned));
+      const JSON5 = require('json5');
+      return JSON5.parse(cleaned);
     } catch (e2) {}
+
+    try {
+      return JSON.parse(fixJsonString(cleaned));
+    } catch (e3) {}
 
     try {
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (match) {
-        return JSON.parse(fixJsonString(match[0]));
+        try {
+          const JSON5 = require('json5');
+          return JSON5.parse(match[0]);
+        } catch (e4) {
+          return JSON.parse(fixJsonString(match[0]));
+        }
       }
-    } catch (e3) {}
+    } catch (e5) {}
 
     throw e1;
   }
@@ -303,11 +313,12 @@ Schema:
     try {
       parsed = safeParseJson(rawText);
     } catch (parseErr) {
-      console.error('Failed to parse Gemini JSON output. Raw text:', rawText);
-      return res.status(500).json({
-        success: false,
-        message: 'Gemini generated content in an unparseable format. Please try again.',
-        raw: rawText
+      console.warn('Failed to parse Gemini JSON output. Falling back to local syllabus generator:', parseErr.message);
+      const localData = generateLocalExamQA(prompt, language);
+      return res.status(200).json({
+        success: true,
+        provider: 'local-resilient',
+        ...localData
       });
     }
 
