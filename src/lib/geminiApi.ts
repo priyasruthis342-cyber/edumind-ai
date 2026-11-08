@@ -15,6 +15,23 @@ export interface QuestionSimple {
   priority_tag?: string;
 }
 
+export interface Question8MarkAnswer {
+  definition?: string;
+  architecture_structure?: string;
+  operations?: string;
+  program_code?: string;
+  program_output?: string;
+  advantages_disadvantages?: string;
+}
+
+export interface Question8Mark {
+  id: number;
+  question: string;
+  importance_stars?: number;
+  priority_tag?: string;
+  answer: string | Question8MarkAnswer;
+}
+
 export interface Question12Mark {
   id: number;
   question: string;
@@ -48,7 +65,7 @@ export interface GeminiExamQAResponse {
   questions_2mark: QuestionSimple[];
   questions_3mark: QuestionSimple[];
   questions_5mark?: QuestionSimple[];
-  questions_8mark?: QuestionSimple[];
+  questions_8mark?: Question8Mark[];
   questions_12mark: Question12Mark[];
 }
 

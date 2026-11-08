@@ -14,6 +14,8 @@ import {
   fetchGeminiChat,
   type GeminiExamQAResponse,
   type QuestionSimple,
+  type Question8Mark,
+  type Question8MarkAnswer,
   type Question12Mark
 } from '@/lib/geminiApi';
 import type { Scan } from '@/types';
@@ -30,6 +32,14 @@ interface ChatMessage {
   text: string;
   timestamp: string;
 }
+
+const MIC_LANGUAGES = [
+  { code: 'en-IN', label: 'English', short: 'EN' },
+  { code: 'ta-IN', label: 'தமிழ்', short: 'தமிழ்' },
+  { code: 'hi-IN', label: 'हिन्दी', short: 'हिन्दी' },
+  { code: 'ml-IN', label: 'മലയാളം', short: 'മലയാളം' },
+  { code: 'te-IN', label: 'తెలుగు', short: 'తెలుగు' }
+];
 
 function renderInlineMarkup(rawText: string) {
   const chunks = rawText.split(/(\*\*.*?\*\*|`.*?`)/g);
@@ -53,7 +63,8 @@ function renderInlineMarkup(rawText: string) {
 }
 
 function renderFormattedChatMessage(text: string) {
-  const parts = text.split(/(```[\s\S]*?```)/g);
+  const sanitizedText = text ? text.replace(/\\n/g, '\n').replace(/\\"/g, '"') : '';
+  const parts = sanitizedText.split(/(```[\s\S]*?```)/g);
   return (
     <div className="space-y-2.5 font-sans">
       {parts.map((part, pIdx) => {
@@ -133,6 +144,210 @@ function renderFormattedChatMessage(text: string) {
   );
 }
 
+/**
+ * Renders 8-Mark University Exam standard answers:
+ * Handles structured object answers ({ definition, architecture_structure, operations, program_code, program_output, advantages_disadvantages })
+ * and parses raw string answers with unescaped newlines, definition boxes, code blocks, and bullet points.
+ */
+function render8MarkAnswer(
+  ans: string | Question8MarkAnswer | any,
+  language: 'en' | 'ta' = 'en',
+  onCopy?: (code: string) => void
+) {
+  if (!ans) return null;
+
+  // Case 1: Structured Object from Gemini backend
+  if (typeof ans === 'object') {
+    return (
+      <div className="space-y-3.5 text-xs sm:text-sm">
+        {/* 1. Definition Box */}
+        {ans.definition && (
+          <div className="rounded-2xl bg-teal-50/70 border border-teal-200 p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-teal-950 flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-teal-700" />
+              1. {language === 'ta' ? 'வரையறை & அடிப்படைக் கோட்பாடு' : 'Definition & Core Concept'}
+            </p>
+            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+              {ans.definition.replace(/\\n/g, '\n')}
+            </div>
+          </div>
+        )}
+
+        {/* 2. Architecture & Structure */}
+        {ans.architecture_structure && (
+          <div className="rounded-2xl bg-indigo-50/70 border border-indigo-200 p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+              <Layers className="h-4 w-4 text-indigo-700" />
+              2. {language === 'ta' ? 'கட்டமைப்பு விவரம் & நினைவக அமைப்பு' : 'Detailed Architecture & Memory Structure'}
+            </p>
+            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+              {ans.architecture_structure.replace(/\\n/g, '\n')}
+            </div>
+          </div>
+        )}
+
+        {/* 3. Core Operations & Time Complexity */}
+        {ans.operations && (
+          <div className="rounded-2xl bg-purple-50/70 border border-purple-200 p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
+              <Calculator className="h-4 w-4 text-purple-700" />
+              3. {language === 'ta' ? 'செயல்முறைகள் & சிக்கல்தன்மை' : 'Core Operations & Big-O Time Complexity'}
+            </p>
+            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+              {ans.operations.replace(/\\n/g, '\n')}
+            </div>
+          </div>
+        )}
+
+        {/* 4. Program Implementation Code */}
+        {ans.program_code && (
+          <div className="rounded-2xl bg-stone-900 border border-stone-800 p-4 text-emerald-300 font-mono text-xs overflow-x-auto shadow-inner space-y-2">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-800 text-stone-400">
+              <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Code className="h-4 w-4" />
+                4. {language === 'ta' ? 'நிரல் குறியீடு (Clean Program Code)' : 'Clean Program Implementation'}
+              </span>
+              {onCopy && (
+                <button
+                  type="button"
+                  onClick={() => onCopy(ans.program_code.replace(/\\n/g, '\n'))}
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-stone-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <Copy className="h-3 w-3" />
+                  Copy Code
+                </button>
+              )}
+            </div>
+            <pre className="text-emerald-300 whitespace-pre leading-relaxed">{ans.program_code.replace(/\\n/g, '\n')}</pre>
+          </div>
+        )}
+
+        {/* 5. Terminal Execution Output */}
+        {ans.program_output && (
+          <div className="rounded-2xl bg-stone-950 border border-stone-800 p-4 text-stone-300 font-mono text-xs overflow-x-auto space-y-2">
+            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Terminal className="h-4 w-4" />
+              5. {language === 'ta' ? 'இயக்க வெளியீடு (Program Execution Output)' : 'Exact Terminal Output'}
+            </span>
+            <pre className="text-stone-200 whitespace-pre leading-relaxed">{ans.program_output.replace(/\\n/g, '\n')}</pre>
+          </div>
+        )}
+
+        {/* 6. Advantages & Disadvantages */}
+        {ans.advantages_disadvantages && (
+          <div className="rounded-2xl bg-rose-50/70 border border-rose-200 p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-rose-950 flex items-center gap-1.5">
+              <Award className="h-4 w-4 text-rose-700" />
+              6. {language === 'ta' ? 'நன்மைகள் & வரம்புகள்' : 'Advantages, Disadvantages & University Summary'}
+            </p>
+            <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+              {ans.advantages_disadvantages.replace(/\\n/g, '\n')}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Case 2: String answer (Handles broken literal \n, unparsed code fences, and definition boxes)
+  const cleanText = String(ans)
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\t/g, '  ');
+
+  // Split out code blocks ```...```
+  const segments = cleanText.split(/(```[\s\S]*?```)/g);
+
+  return (
+    <div className="space-y-3 text-xs sm:text-sm">
+      {segments.map((seg, sIdx) => {
+        if (seg.startsWith('```') && seg.endsWith('```')) {
+          const lines = seg.slice(3, -3).trim().split('\n');
+          const firstLine = lines[0].trim();
+          const hasLang = /^[a-z0-9_-]+$/i.test(firstLine);
+          const lang = hasLang ? firstLine.toLowerCase() : '';
+          const codeContent = hasLang ? lines.slice(1).join('\n') : lines.join('\n');
+
+          return (
+            <div key={sIdx} className="rounded-2xl bg-stone-900 border border-stone-800 p-4 text-emerald-300 font-mono text-xs overflow-x-auto shadow-inner space-y-2">
+              <div className="flex items-center justify-between pb-1.5 border-b border-stone-800 text-stone-400">
+                <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Code className="h-3.5 w-3.5" />
+                  {lang || 'Program Code'}
+                </span>
+                {onCopy && (
+                  <button
+                    type="button"
+                    onClick={() => onCopy(codeContent)}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-stone-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copy Code
+                  </button>
+                )}
+              </div>
+              <pre className="text-emerald-300 whitespace-pre leading-relaxed">{codeContent}</pre>
+            </div>
+          );
+        }
+
+        // Process markdown text lines
+        const lines = seg.split('\n');
+        return (
+          <div key={sIdx} className="space-y-1.5">
+            {lines.map((line, lIdx) => {
+              const trimmed = line.trim();
+              if (!trimmed) return <div key={lIdx} className="h-0.5" />;
+
+              // Highlighted Definition Box: [DEFINITION BOX: ...] or > **DEFINITION BOX:**
+              if (/^\[DEFINITION BOX:|^>\s*\*\*DEFINITION BOX:/i.test(trimmed)) {
+                const defContent = trimmed.replace(/^\[DEFINITION BOX:\s*|\]$|^>\s*\*\*DEFINITION BOX:\*\*\s*/i, '');
+                return (
+                  <div key={lIdx} className="rounded-2xl bg-teal-50 border-2 border-teal-300 p-4 shadow-xs my-2">
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-teal-900 flex items-center gap-1.5 mb-1">
+                      <FileText className="h-4 w-4 text-teal-700" />
+                      {language === 'ta' ? 'வரையறைப் பெட்டி (Definition Box)' : 'University Definition Box'}
+                    </p>
+                    <p className="text-xs sm:text-sm font-semibold text-stone-900 leading-relaxed">
+                      {renderInlineMarkup(defContent)}
+                    </p>
+                  </div>
+                );
+              }
+
+              // Headings
+              if (trimmed.startsWith('### ') || trimmed.startsWith('## ')) {
+                return (
+                  <h4 key={lIdx} className="font-extrabold text-teal-950 text-sm pt-2 pb-0.5 border-b border-stone-200">
+                    {renderInlineMarkup(trimmed.replace(/^#+\s*/, ''))}
+                  </h4>
+                );
+              }
+
+              // Bullet points
+              if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || /^\d+\.\s/.test(trimmed)) {
+                return (
+                  <div key={lIdx} className="flex items-start gap-2 pl-2 text-stone-800">
+                    <span className="text-teal-600 font-extrabold">•</span>
+                    <span className="leading-relaxed font-medium">{renderInlineMarkup(trimmed.replace(/^([*-]|\d+\.)\s*/, ''))}</span>
+                  </div>
+                );
+              }
+
+              // Regular text paragraph
+              return (
+                <p key={lIdx} className="text-stone-800 leading-relaxed font-normal">
+                  {renderInlineMarkup(trimmed)}
+                </p>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function StudyPage({ id }: StudyPageProps) {
   // ── Scan data (from localStorage) ────────────────────────────
   const [scan, setScan] = useState<Scan | null>(null);
@@ -171,14 +386,16 @@ export function StudyPage({ id }: StudyPageProps) {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // ── Manual Continuous Voice Input (Microphone) ───────────────
+  // ── Multi-Language Manual Voice Input (Microphone) ────────────
+  const [micLang, setMicLang] = useState<string>('en-IN');
   const [isListening, setIsListening] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef<boolean>(false);
 
-  const startListening = () => {
+  const startListening = (selectedLang?: string) => {
     if (typeof window === 'undefined') return;
+    const targetLang = selectedLang || micLang;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
@@ -199,7 +416,7 @@ export function StudyPage({ id }: StudyPageProps) {
       recognitionRef.current = recognition;
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
+      recognition.lang = targetLang;
       isListeningRef.current = true;
 
       recognition.onstart = () => {
@@ -208,16 +425,11 @@ export function StudyPage({ id }: StudyPageProps) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
-        let interim = '';
-        let final = '';
+        let fullTranscript = '';
         for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript + ' ';
-          } else {
-            interim += event.results[i][0].transcript;
-          }
+          fullTranscript += event.results[i][0].transcript + ' ';
         }
-        const text = (final + interim).trim();
+        const text = fullTranscript.trim();
         if (text) {
           setChatInput(text);
         }
@@ -272,6 +484,16 @@ export function StudyPage({ id }: StudyPageProps) {
       stopListening();
     } else {
       startListening();
+    }
+  };
+
+  const handleSelectMicLang = (langCode: string) => {
+    setMicLang(langCode);
+    if (isListeningRef.current) {
+      stopListening();
+      setTimeout(() => {
+        startListening(langCode);
+      }, 150);
     }
   };
 
@@ -439,7 +661,7 @@ export function StudyPage({ id }: StudyPageProps) {
     );
   }
 
-  const questions8List: QuestionSimple[] = geminiData?.questions_8mark || geminiData?.questions_5mark || [];
+  const questions8List: Question8Mark[] = geminiData?.questions_8mark || (geminiData?.questions_5mark as any) || [];
   const questions2List: QuestionSimple[] = geminiData?.questions_2mark || [];
   const questions3List: QuestionSimple[] = geminiData?.questions_3mark || [];
   const questions12List: Question12Mark[] = geminiData?.questions_12mark || [];
@@ -448,7 +670,7 @@ export function StudyPage({ id }: StudyPageProps) {
   interface CuratedQuestion {
     id: number;
     question: string;
-    answer: string | Question12Mark['answer'];
+    answer: string | Question8MarkAnswer | Question12Mark['answer'];
     markBadge: string;
     markType: '12' | '8' | '3' | '2';
     stars: number;
@@ -789,9 +1011,11 @@ export function StudyPage({ id }: StudyPageProps) {
                           {/* Collapsible Answer Content */}
                           {isExpanded && (
                             <div className="mt-3 pt-3 border-t border-stone-200 animate-fade-up">
-                              {typeof q.answer === 'string' ? (
+                              {q.markType === '8' ? (
+                                render8MarkAnswer(q.answer, language, (code) => handleCopyText(code, ansKey))
+                              ) : typeof q.answer === 'string' ? (
                                 <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line">
-                                  {q.answer}
+                                  {q.answer.replace(/\\n/g, '\n')}
                                 </div>
                               ) : (
                                 <div className="space-y-3.5 text-xs sm:text-sm">
@@ -1036,8 +1260,8 @@ export function StudyPage({ id }: StudyPageProps) {
                             </button>
 
                             {isExpanded && (
-                              <div className="rounded-xl bg-indigo-50/50 border border-indigo-100 p-4 text-xs sm:text-sm leading-relaxed text-stone-800 font-medium whitespace-pre-line mt-3 animate-fade-up">
-                                {q.answer}
+                              <div className="mt-3 pt-3 border-t border-indigo-100 animate-fade-up">
+                                {render8MarkAnswer(q.answer, language, (code) => handleCopyText(code, ansKey))}
                               </div>
                             )}
                           </div>
@@ -1476,65 +1700,103 @@ export function StudyPage({ id }: StudyPageProps) {
               <div ref={chatMessagesEndRef} />
             </div>
 
-            {/* Chat Input Bar with Simple Voice Microphone & Explicit Manual Stop */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (isListening) stopListening();
-                handleSendChat();
-              }}
-              className="flex items-center gap-2 pt-1"
-            >
-              {/* Small, clean microphone icon directly adjacent to input box */}
-              <button
-                type="button"
-                onClick={toggleListening}
-                title={isListening ? 'Microphone active. Click to stop' : 'Tap microphone to speak'}
-                className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-xs ${
-                  isListening
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-2 ring-rose-300'
-                    : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                }`}
-              >
-                {isListening ? <Mic className="h-4 w-4 text-white animate-pulse" /> : <Mic className="h-4 w-4 text-stone-700" />}
-              </button>
+            {/* Multi-Language Speech Selector & Live Recording Indicator */}
+            <div className="pt-2 border-t border-stone-200/80 space-y-1.5">
+              <div className="flex items-center justify-between px-1 text-[11px]">
+                <span className="font-semibold text-stone-600 flex items-center gap-1">
+                  <Mic className="h-3 w-3 text-teal-600" />
+                  Voice Language:
+                </span>
+                <div className="flex items-center gap-1">
+                  {MIC_LANGUAGES.map((langItem) => (
+                    <button
+                      key={langItem.code}
+                      type="button"
+                      onClick={() => handleSelectMicLang(langItem.code)}
+                      title={`Speak in ${langItem.label}`}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        micLang === langItem.code
+                          ? 'bg-teal-700 text-white shadow-2xs'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
+                      }`}
+                    >
+                      {langItem.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              {/* Explicit Manual Stop Button next to Mic when recording */}
+              {/* Live recording status badge */}
               {isListening && (
-                <button
-                  type="button"
-                  onClick={stopListening}
-                  title="Manually end voice recording"
-                  className="px-2.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse"
-                >
-                  <Square className="h-3.5 w-3.5 fill-white" />
-                  <span>Stop</span>
-                </button>
+                <div className="flex items-center justify-between bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1 text-[11px] text-rose-800 animate-pulse">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="h-2 w-2 rounded-full bg-rose-600 animate-ping" />
+                    Listening in {MIC_LANGUAGES.find((l) => l.code === micLang)?.label}…
+                  </span>
+                  <span className="text-[10px] text-rose-600 font-medium">Click Stop when finished</span>
+                </div>
               )}
 
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={
-                  isListening
-                    ? 'Recording voice... Click Stop when finished.'
-                    : language === 'ta'
-                    ? 'கேள்வி அல்லது தலைப்பு கேட்கவும்...'
-                    : 'Ask any question or diagram...'
-                }
-                className="input flex-1 text-xs py-2.5 px-3"
-                disabled={chatLoading}
-              />
-
-              <button
-                type="submit"
-                disabled={!chatInput.trim() || chatLoading}
-                className="btn-primary flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              {/* Chat Input Bar with Simple Voice Microphone & Explicit Manual Stop */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (isListening) stopListening();
+                  handleSendChat();
+                }}
+                className="flex items-center gap-2"
               >
-                {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </form>
+                {/* Small, clean microphone icon directly adjacent to input box */}
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  title={isListening ? 'Microphone active. Click to stop' : `Tap to speak in ${MIC_LANGUAGES.find((l) => l.code === micLang)?.label}`}
+                  className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-xs ${
+                    isListening
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse ring-2 ring-rose-300'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                  }`}
+                >
+                  {isListening ? <Mic className="h-4 w-4 text-white animate-pulse" /> : <Mic className="h-4 w-4 text-stone-700" />}
+                </button>
+
+                {/* Explicit Manual Stop Button next to Mic when recording */}
+                {isListening && (
+                  <button
+                    type="button"
+                    onClick={stopListening}
+                    title="Manually end voice recording"
+                    className="px-2.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse"
+                  >
+                    <Square className="h-3.5 w-3.5 fill-white" />
+                    <span>Stop</span>
+                  </button>
+                )}
+
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder={
+                    isListening
+                      ? `Listening in ${MIC_LANGUAGES.find((l) => l.code === micLang)?.label}... Click Stop when done.`
+                      : language === 'ta'
+                      ? 'கேள்வி அல்லது தலைப்பு கேட்கவும்...'
+                      : 'Ask any question or diagram...'
+                  }
+                  className="input flex-1 text-xs py-2.5 px-3"
+                  disabled={chatLoading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="btn-primary flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </form>
+            </div>
           </div>
         </aside>
 
