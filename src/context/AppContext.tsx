@@ -73,19 +73,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
+    try {
+      supabase.auth.getSession().then(({ data }) => {
+        if (!active) return;
+        setSession(data?.session ?? null);
+        setSessionChecked(true);
+      }).catch((err) => {
+        console.warn('Supabase session initialization notice:', err?.message || err);
+        if (active) setSessionChecked(true);
+      });
+
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        if (!active) return;
+        setSession(nextSession);
+        setSessionChecked(true);
+      });
+
+      return () => {
+        active = false;
+        listener?.subscription?.unsubscribe();
+      };
+    } catch (e) {
+      console.warn('Supabase auth listener notice:', e);
       setSessionChecked(true);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setSessionChecked(true);
-    });
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
+    }
   }, []);
 
   const userId = session?.user.id ?? null;
@@ -152,8 +163,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw new Error(error.message);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Supabase signOut notice:', err);
+    }
+    setSession(null);
+    setProfile(null);
   }, []);
 
   const reloadAccess = useCallback(async () => {
