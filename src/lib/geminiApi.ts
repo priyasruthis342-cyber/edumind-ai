@@ -225,7 +225,9 @@ export interface GeminiChatResponse {
 export async function fetchGeminiChat(
   query: string,
   context?: string,
-  language: 'en' | 'ta' = 'en'
+  language: 'en' | 'ta' = 'en',
+  imageBase64?: string,
+  mimeType?: string
 ): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 45000);
@@ -234,7 +236,7 @@ export async function fetchGeminiChat(
     const res = await fetch(`${BACKEND_URL}/api/gemini/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, context, language }),
+      body: JSON.stringify({ query, context, language, imageBase64, mimeType }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);

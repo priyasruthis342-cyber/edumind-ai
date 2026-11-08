@@ -54,20 +54,20 @@ export function AppShell({ children, route }: AppShellProps) {
       <header className="sticky top-0 z-30 border-b border-stone-200/90 bg-white/90 backdrop-blur-md shadow-xs transition-colors">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-bold shadow-sm text-sm sm:text-base">
-              E
+            <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 via-indigo-600 to-purple-600 text-white font-black shadow-md shadow-indigo-600/30 text-base ring-2 ring-white/80">
+              📚
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <p className="font-display font-bold leading-none text-ink text-sm sm:text-base truncate">{t('appName')}</p>
+                <p className="font-display font-extrabold leading-none text-ink text-base sm:text-lg tracking-tight truncate">{t('appName')}</p>
                 {userName && (
-                  <span className="hidden xs:inline-flex rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-800 truncate max-w-[110px] sm:max-w-none">
-                    {userName}
+                  <span className="hidden xs:inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-teal-100 to-indigo-100 border border-teal-200/80 px-2.5 py-0.5 text-[11px] font-bold text-teal-900 truncate max-w-[120px] sm:max-w-none shadow-2xs">
+                    ✨ {userName}
                   </span>
                 )}
               </div>
-              {/* மொழிக்கு ஏற்ப மாறக்கூடிய மோட்டிவேஷனல் வரி - மொபைலில் gọnமாக வைக்கப்பட்டுள்ளது */}
-              <p className="hidden sm:block mt-1 text-xs font-medium text-stone-600 italic truncate max-w-md">
+              {/* மொழிக்கு ஏற்ப மாறக்கூடிய மோட்டிவேஷனல் வரி */}
+              <p className="hidden sm:block mt-1 text-xs font-semibold text-indigo-900/70 italic truncate max-w-md">
                 "{currentQuote}"
               </p>
             </div>
@@ -96,54 +96,54 @@ export function AppShell({ children, route }: AppShellProps) {
         </div>
 
         {/* மெனு ஆப்ஷன்கள் பாக்ஸ் வரிசை - மொபைல் போன்களில் மென்மையான ஸ்லைடிங் ஆதரவு */}
-        <div className="border-t border-stone-200/70 bg-stone-50/80 px-2.5 py-2 sm:px-6 backdrop-blur-sm">
+        <div className="border-t border-stone-200/70 bg-white/70 px-2.5 py-2 sm:px-6 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto whitespace-nowrap pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
             <a
               href="#/"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
                 route.name === 'home'
-                  ? 'bg-teal-700 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-white/95 text-stone-700 border border-stone-200/90 hover:bg-stone-100/90 shadow-xs'
+                  ? 'bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
               }`}
             >
               <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Courses
             </a>
             <a
               href="#/scan"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
                 route.name === 'scan'
-                  ? 'bg-teal-700 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-white/95 text-stone-700 border border-stone-200/90 hover:bg-stone-100/90 shadow-xs'
+                  ? 'bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
               }`}
             >
               <ScanText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Scanner
             </a>
             <a
               href="#/study"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
                 route.name === 'study'
-                  ? 'bg-teal-700 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-white/95 text-stone-700 border border-stone-200/90 hover:bg-stone-100/90 shadow-xs'
+                  ? 'bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
               }`}
             >
               <BookMarked className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> My Study
             </a>
             <a
               href="#/theory"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
                 route.name === 'theory'
-                  ? 'bg-teal-700 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-white/95 text-stone-700 border border-stone-200/90 hover:bg-stone-100/90 shadow-xs'
+                  ? 'bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
               }`}
             >
               <BrainCircuit className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Theory Audio
             </a>
             <a
               href="#/progress"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
                 route.name === 'progress'
-                  ? 'bg-teal-700 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-white/95 text-stone-700 border border-stone-200/90 hover:bg-stone-100/90 shadow-xs'
+                  ? 'bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
               }`}
             >
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> My Progress

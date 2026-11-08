@@ -10,6 +10,26 @@ export interface ExtractedFile {
 const OCR_ASSET_DIR = `${import.meta.env.BASE_URL}tesseract/`;
 
 /**
+ * Checks whether the extracted text is genuine legible text vs random OCR sensor noise (like 'Fs he (Q mo Rk G0 pe 2 cg <').
+ */
+export function isLegibleAcademicText(text: string): boolean {
+  if (!text || text.trim().length < 8) return false;
+  const words = text.split(/\s+/).filter(w => /[a-zA-Z\u0B80-\u0BFF\u0900-\u097F]/.test(w));
+  if (words.length < 2) return false;
+
+  // Identify suspicious 1-2 letter non-standard fragments (e.g. 'cg', 'G0', '3_f', 'Ld', 'ANE')
+  const validTwoLetterWords = new Set(['in', 'on', 'at', 'to', 'is', 'an', 'as', 'or', 'by', 'we', 'it', 'he', 'if', 'my', 'no', 'so', 'up', 'do', 'go', 'am', 'of', 'us']);
+  const junkWords = words.filter(w => {
+    const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    return clean.length <= 2 && !validTwoLetterWords.has(clean);
+  });
+
+  // If over 40% of words are strange isolated 1-2 letter fragments, it's OCR noise
+  if (junkWords.length / words.length > 0.40) return false;
+  return true;
+}
+
+/**
  * Cleans garbage OCR artifacts (lone copyright/trademark symbols, stray punctuation lines)
  * produced by noisy camera scans or weak handwriting recognition.
  */
@@ -218,9 +238,8 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
       await worker.terminate();
       if (data && data.text) {
         const cleanedLocal = cleanOcrNoise(data.text);
-        // Only return if it has genuine coherent words, not lone garbage fragments
-        const words = cleanedLocal.match(/[a-zA-Z]{2,}/g) || [];
-        if (cleanedLocal.length >= 15 && words.length >= 3) {
+        // Strictly verify that the text is legible academic content and not random letter noise
+        if (isLegibleAcademicText(cleanedLocal)) {
           return cleanedLocal;
         }
       }

@@ -4,7 +4,7 @@ import {
   BookOpen, Award, Eye, EyeOff, Loader2, AlertTriangle,
   Layers, FileText, Check, Globe, Volume2,
   Send, Bot, User, Copy, Code, Mic, Square,
-  Terminal, Calculator, HelpCircle
+  Terminal, Calculator, HelpCircle, Camera, ImagePlus, Paperclip, X
 } from 'lucide-react';
 import { MermaidDiagram } from '@/components/study/MermaidDiagram';
 import { getScan, setActiveSyllabus } from '@/lib/data';
@@ -31,6 +31,8 @@ interface ChatMessage {
   sender: 'user' | 'gemini';
   text: string;
   timestamp: string;
+  imageUrl?: string;
+  attachmentName?: string;
 }
 
 const MIC_LANGUAGES = [
@@ -386,6 +388,32 @@ export function StudyPage({ id }: StudyPageProps) {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // ── AI Chat Image / Question File Attachment State ────────────
+  const chatFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [chatAttachment, setChatAttachment] = useState<{
+    file: File;
+    previewUrl: string;
+    base64: string;
+    mimeType: string;
+  } | null>(null);
+
+  const handleChatFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const mimeType = file.type || 'image/jpeg';
+    const previewUrl = URL.createObjectURL(file);
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    setChatAttachment({ file, previewUrl, base64, mimeType });
+  };
+
   // ── Multi-Language Manual Voice Input (Microphone) ────────────
   const [micLang, setMicLang] = useState<string>('en-IN');
   const [isListening, setIsListening] = useState(false);
@@ -547,17 +575,24 @@ export function StudyPage({ id }: StudyPageProps) {
       } catch (_e) {}
     }
 
+    const currentAttachment = chatAttachment;
     const queryToSend = (customQuery || chatInput).trim();
-    if (!queryToSend || chatLoading) return;
+    if (!queryToSend && !currentAttachment) return;
+    if (chatLoading) return;
 
-    // 2. Clear out the chat input box completely immediately so it never lingers
+    // 2. Clear out the chat input box and attachment immediately
     setChatInput('');
+    setChatAttachment(null);
+
+    const effectiveText = queryToSend || (currentAttachment ? `Please examine this attached study image / handwritten question sheet (${currentAttachment.file.name}), solve the problem with step-by-step clarity, and explain the key concepts.` : '');
 
     const userMsg: ChatMessage = {
       id: 'user_' + Date.now(),
       sender: 'user',
-      text: queryToSend,
+      text: effectiveText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      imageUrl: currentAttachment?.previewUrl,
+      attachmentName: currentAttachment?.file.name,
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
@@ -565,18 +600,18 @@ export function StudyPage({ id }: StudyPageProps) {
     setChatError(null);
 
     // 3. Strict Chat Box Focus & Document Context Isolation:
-    // Only pass document context if the student explicitly asks about the uploaded document, notes, or scan.
-    // Otherwise pass empty string so the AI strictly focuses 100% on the user's current query without pulling unrelated scanned pages!
-    const isExplicitScanRequest = /summary|summarize|scanned|this pdf|this document|uploaded file|from notes|from scan|in this pdf|in this scan/i.test(queryToSend);
+    const isExplicitScanRequest = /summary|summarize|scanned|this pdf|this document|uploaded file|from notes|from scan|in this pdf|in this scan/i.test(effectiveText);
     const relevantContext = isExplicitScanRequest
       ? (scan?.raw_text || scan?.chapter_title || '')
       : '';
 
     try {
       const aiReply = await fetchGeminiChat(
-        queryToSend,
+        effectiveText,
         relevantContext,
-        language
+        language,
+        currentAttachment?.base64,
+        currentAttachment?.mimeType
       );
       const newMsgId = 'gemini_' + Date.now();
       const geminiMsg: ChatMessage = {
@@ -1713,6 +1748,21 @@ export function StudyPage({ id }: StudyPageProps) {
                     </div>
 
                     <div className="font-sans">
+                      {msg.imageUrl && (
+                        <div className="mb-2 overflow-hidden rounded-xl border border-white/20 bg-black/10">
+                          <img
+                            src={msg.imageUrl}
+                            alt="Attached Question"
+                            className="max-h-48 w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(msg.imageUrl, '_blank')}
+                          />
+                          {msg.attachmentName && (
+                            <p className="px-2 py-1 text-[10px] text-white/90 font-medium truncate bg-black/20">
+                              📎 {msg.attachmentName}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       {msg.sender === 'gemini' ? (
                         renderFormattedChatMessage(msg.text)
                       ) : (
@@ -1795,15 +1845,64 @@ export function StudyPage({ id }: StudyPageProps) {
                 </div>
               )}
 
-              {/* Chat Input Bar with Simple Voice Microphone & Explicit Manual Stop */}
+              {/* Active Attached Image Card Preview */}
+              {chatAttachment && (
+                <div className="flex items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-teal-50 to-indigo-50 border border-teal-200/90 p-2 shadow-xs animate-fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <img
+                      src={chatAttachment.previewUrl}
+                      alt="Attachment Preview"
+                      className="h-10 w-10 rounded-xl object-cover border border-teal-300 shadow-2xs shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-teal-950 truncate max-w-[180px] sm:max-w-[240px]">
+                        {chatAttachment.file.name}
+                      </p>
+                      <p className="text-[10px] text-teal-700 font-medium">Ready to analyze • Tap send to solve</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setChatAttachment(null)}
+                    className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-200/70 hover:text-stone-700 transition-colors shrink-0 cursor-pointer"
+                    title="Remove attachment"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Chat Input Bar with Simple Voice Microphone, Camera Attachment & Explicit Manual Stop */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (isListening) stopListening();
                   handleSendChat();
                 }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1.5"
               >
+                {/* Camera / Photo Attachment Button */}
+                <button
+                  type="button"
+                  onClick={() => chatFileInputRef.current?.click()}
+                  disabled={chatLoading}
+                  title="Attach a photo, handwritten question, or document"
+                  className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-xs ${
+                    chatAttachment
+                      ? 'bg-teal-700 text-white ring-2 ring-teal-400'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 hover:border-teal-500'
+                  }`}
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input
+                  ref={chatFileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="sr-only"
+                  onChange={handleChatFileSelect}
+                />
+
                 {/* Small, clean microphone icon directly adjacent to input box */}
                 <button
                   type="button"
@@ -1836,11 +1935,13 @@ export function StudyPage({ id }: StudyPageProps) {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder={
-                    isListening
+                    chatAttachment
+                      ? `Ask a question about ${chatAttachment.file.name}...`
+                      : isListening
                       ? `Listening in ${MIC_LANGUAGES.find((l) => l.code === micLang)?.label}... Click Stop when done.`
                       : language === 'ta'
-                      ? 'கேள்வி அல்லது தலைப்பு கேட்கவும்...'
-                      : 'Ask any question or diagram...'
+                      ? 'கேள்வி அல்லது படம் கேட்கவும்...'
+                      : 'Ask any question, or attach photo...'
                   }
                   className="input flex-1 text-xs py-2.5 px-3"
                   disabled={chatLoading}
@@ -1848,8 +1949,8 @@ export function StudyPage({ id }: StudyPageProps) {
 
                 <button
                   type="submit"
-                  disabled={!chatInput.trim() || chatLoading}
-                  className="btn-primary flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  disabled={(!chatInput.trim() && !chatAttachment) || chatLoading}
+                  className="btn-primary flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 shrink-0"
                 >
                   {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
