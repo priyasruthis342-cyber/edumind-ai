@@ -1,4 +1,5 @@
 import { extractImageWithGemini } from './geminiApi';
+import { cleanMathFormatting } from './mathFormatter';
 
 export type ExtractedKind = 'text' | 'pdf' | 'image';
 
@@ -14,11 +15,15 @@ const OCR_ASSET_DIR = `${import.meta.env.BASE_URL}tesseract/`;
  */
 export function isLegibleAcademicText(text: string): boolean {
   if (!text || text.trim().length < 8) return false;
+  // If text contains mathematical equations or calculations, it is genuine academic math
+  if (/[=+\-*\/^√²³]/.test(text) && /\d/.test(text)) {
+    return true;
+  }
   const words = text.split(/\s+/).filter(w => /[a-zA-Z\u0B80-\u0BFF\u0900-\u097F]/.test(w));
   if (words.length < 2) return false;
 
   // Identify suspicious 1-2 letter non-standard fragments (e.g. 'cg', 'G0', '3_f', 'Ld', 'ANE')
-  const validTwoLetterWords = new Set(['in', 'on', 'at', 'to', 'is', 'an', 'as', 'or', 'by', 'we', 'it', 'he', 'if', 'my', 'no', 'so', 'up', 'do', 'go', 'am', 'of', 'us']);
+  const validTwoLetterWords = new Set(['in', 'on', 'at', 'to', 'is', 'an', 'as', 'or', 'by', 'we', 'it', 'he', 'if', 'my', 'no', 'so', 'up', 'do', 'go', 'am', 'of', 'us', 'pi', 'bf', 'll', 'rr', 'lr', 'rl', 'dx', 'dy', 'dt']);
   const junkWords = words.filter(w => {
     const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
     return clean.length <= 2 && !validTwoLetterWords.has(clean);
@@ -87,10 +92,17 @@ async function compressAndDownscaleImage(file: Blob | File, maxDim = 1800): Prom
         return;
       }
 
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
+
       canvas.toBlob(
         (blob) => {
-          resolve(blob || file);
+          if (blob && blob.size < file.size) {
+            resolve(blob);
+          } else {
+            resolve(file);
+          }
         },
         'image/jpeg',
         0.88
@@ -107,163 +119,150 @@ async function compressAndDownscaleImage(file: Blob | File, maxDim = 1800): Prom
 }
 
 /**
- * Timeout helper to prevent infinite loading freezes
+ * Extract text from an image.
+ * Uses high-speed server-side Gemini Vision OCR.
+ * Transparently falls back to local Tesseract if offline or network fails.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number, fallbackErrorMsg: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(fallbackErrorMsg)), ms)
-    )
-  ]);
+async function extractImage(
+  file: Blob | File,
+  onProgress?: (msg: string) => void
+): Promise<string> {
+  // Step 1: Compress high-res camera snaps for rapid transmission
+  onProgress?.('Preparing image...');
+  let optimizedFile: Blob | File = file;
+  try {
+    optimizedFile = await compressAndDownscaleImage(file);
+  } catch (compErr) {
+    console.warn('Image downscaling skipped:', compErr);
+  }
+
+  // Step 2: High-accuracy server-side Gemini Vision OCR
+  try {
+    onProgress?.('Extracting text with Google Gemini Vision...');
+    const extracted = await extractImageWithGemini(optimizedFile);
+    const cleaned = cleanOcrNoise(extracted.trim());
+
+    // Validate that the returned text is legible academic content and not garbage
+    if (cleaned && isLegibleAcademicText(cleaned)) {
+      return cleaned;
+    }
+    console.warn('Gemini Vision returned sparse or noisy text, trying enhanced pass...');
+  } catch (apiErr: unknown) {
+    console.warn('Server-side Gemini Vision OCR failed, falling back to local OCR:', apiErr);
+  }
+
+  // Step 3: Resilient client-side fallback via Tesseract.js
+  onProgress?.('Initializing local OCR engine...');
+  const { createWorker } = await import('tesseract.js');
+
+  const worker = await createWorker('eng+tam', 1, {
+    workerPath: `${OCR_ASSET_DIR}worker.min.js`,
+    corePath: `${OCR_ASSET_DIR}tesseract-core.wasm.js`,
+    langPath: `${OCR_ASSET_DIR}lang-data`,
+    logger: (m: { status?: string; progress?: number }) => {
+      if (m.status === 'recognizing text' && onProgress && m.progress != null) {
+        onProgress(`Reading image (${Math.round(m.progress * 100)}%)...`);
+      }
+    },
+  });
+
+  try {
+    const {
+      data: { text },
+    } = await worker.recognize(optimizedFile);
+    await worker.terminate();
+
+    const cleaned = cleanOcrNoise(text.trim());
+    if (!cleaned) {
+      throw new Error(
+        'Could not detect readable text in this image. Please take a clearer photo under good lighting or type key words manually.'
+      );
+    }
+    return cleaned;
+  } catch (tessErr) {
+    await worker.terminate().catch(() => {});
+    throw tessErr;
+  }
 }
 
-async function extractPdf(file: File, onProgress?: (msg: string) => void): Promise<string> {
-  onProgress?.('Reading PDF structure...');
+/**
+ * Extract text from a PDF file using pdfjs-dist.
+ * If pages have little/no text layer, renders page to canvas and runs OCR.
+ */
+async function extractPdf(
+  file: File,
+  onProgress?: (msg: string) => void
+): Promise<string> {
+  onProgress?.('Loading PDF...');
   const pdfjs = await import('pdfjs-dist');
-  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.mjs`;
 
-  const arrayBuffer = await file.arrayBuffer();
-  const document = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  const totalPages = document.numPages;
-  const pages: string[] = [];
-  let totalChars = 0;
+  const data = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data }).promise;
+  const numPages = pdf.numPages;
 
-  // 1. Fast Digital Text Extraction (takes <200ms)
-  for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-    onProgress?.(`Extracting page ${pageNumber} of ${totalPages}...`);
-    const page = await document.getPage(pageNumber);
+  const pageTexts: string[] = [];
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    onProgress?.(`Reading page ${pageNum} of ${numPages}...`);
+    const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
-    let pageText = '';
+    const strings = content.items
+      .map((item) => ('str' in item ? (item as { str: string }).str : ''))
+      .join(' ')
+      .trim();
 
-    for (const item of content.items) {
-      if (!('str' in item)) continue;
-      pageText += item.str;
-      pageText += item.hasEOL ? '\n' : ' ';
-    }
+    if (strings.length > 50) {
+      pageTexts.push(strings);
+    } else {
+      // Scanned PDF page: render to canvas and run OCR
+      onProgress?.(`Page ${pageNum} is scanned — running OCR...`);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
 
-    if (pageText.trim()) {
-      pages.push(`--- Page ${pageNumber} ---\n` + pageText.trim());
-      totalChars += pageText.trim().length;
-    }
-  }
-
-  // If digital text was extracted successfully, return immediately!
-  if (totalChars > 40) {
-    await document.destroy();
-    return pages.join('\n\n');
-  }
-
-  // 2. Scanned PDF fallback: render first 3 pages to canvas & extract
-  onProgress?.('Scanned PDF detected. Extracting text from pages...');
-  const maxOcrPages = Math.min(totalPages, 3);
-  const ocrPages: string[] = [];
-
-  for (let pageNumber = 1; pageNumber <= maxOcrPages; pageNumber++) {
-    try {
-      onProgress?.(`Reading scanned page ${pageNumber}...`);
-      const page = await document.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = window.document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (context) {
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await page.render({ canvasContext: context, viewport } as any).promise;
-
-        const pageBlob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
-        if (pageBlob) {
-          const text = await extractImage(pageBlob, onProgress);
-          if (text.trim()) {
-            ocrPages.push(`--- Page ${pageNumber} ---\n` + text.trim());
+      if (ctx) {
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, 'image/png')
+        );
+        if (blob) {
+          const ocrText = await extractImage(blob, onProgress);
+          if (ocrText.trim()) {
+            pageTexts.push(ocrText.trim());
           }
         }
       }
-    } catch (e) {
-      console.warn(`Scanned PDF page ${pageNumber} OCR note:`, e);
     }
   }
 
-  await document.destroy();
-  if (ocrPages.length > 0) {
-    return ocrPages.join('\n\n');
+  const combined = cleanOcrNoise(pageTexts.join('\n\n').trim());
+  if (!combined) {
+    throw new Error(
+      'Could not extract text from this PDF. It may be empty or password-protected.'
+    );
   }
-
-  throw new Error('Could not extract readable text from this PDF. Please try a text document or clear textbook photo.');
+  return combined;
 }
 
-async function extractImage(file: Blob | File, onProgress?: (msg: string) => void): Promise<string> {
-  onProgress?.('Optimizing photo for handwriting & text reading...');
-  const optimizedBlob = await compressAndDownscaleImage(file, 1800);
-
-  // 1. High-Speed Gemini Vision OCR (runs in ~1-2s on server, understands messy handwriting)
-  try {
-    onProgress?.('Transcribing handwriting & text with Gemini Vision...');
-    const rawVisionText = await withTimeout(
-      extractImageWithGemini(optimizedBlob),
-      25000,
-      'Gemini Vision timeout'
-    );
-    const cleanedVision = cleanOcrNoise(rawVisionText);
-    if (cleanedVision && cleanedVision.length >= 8) {
-      return cleanedVision;
-    }
-  } catch (visionErr) {
-    console.warn('Gemini Vision note (falling back to local engine):', visionErr);
-  }
-
-  // 2. Client-side Tesseract OCR fallback
-  try {
-    onProgress?.('Reading text locally...');
-    const { createWorker } = await import('tesseract.js');
-    const worker = await withTimeout(
-      createWorker('eng', 1, {
-        workerPath: `${OCR_ASSET_DIR}worker.min.js`,
-        corePath: OCR_ASSET_DIR,
-        langPath: OCR_ASSET_DIR,
-        gzip: true,
-      }),
-      12000,
-      'OCR engine initialization timed out'
-    );
-
-    try {
-      const { data } = await withTimeout(
-        worker.recognize(optimizedBlob),
-        18000,
-        'OCR recognition timed out'
-      );
-      await worker.terminate();
-      if (data && data.text) {
-        const cleanedLocal = cleanOcrNoise(data.text);
-        // Strictly verify that the text is legible academic content and not random letter noise
-        if (isLegibleAcademicText(cleanedLocal)) {
-          return cleanedLocal;
-        }
-      }
-    } catch (recErr) {
-      await worker.terminate().catch(() => {});
-      throw recErr;
-    }
-  } catch (localErr) {
-    console.warn('Local OCR attempt error:', localErr);
-  }
-
-  throw new Error('The handwriting or document photo could not be read clearly. Please make sure the lighting is bright and handwriting is legible, or paste the text directly.');
-}
-
+/**
+ * Read text from an uploaded file (.txt, .pdf, or image).
+ */
 export async function extractTextFromFile(
   file: File,
   onProgress?: (msg: string) => void
 ): Promise<ExtractedFile> {
   const name = file.name.toLowerCase();
   if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
-    return { text: await extractPdf(file, onProgress), kind: 'pdf' };
+    const raw = await extractPdf(file, onProgress);
+    return { text: cleanMathFormatting(raw), kind: 'pdf' };
   }
   if (file.type.startsWith('image/')) {
-    return { text: await extractImage(file, onProgress), kind: 'image' };
+    const raw = await extractImage(file, onProgress);
+    return { text: cleanMathFormatting(raw), kind: 'image' };
   }
-  return { text: await file.text(), kind: 'text' };
+  const raw = await file.text();
+  return { text: cleanMathFormatting(raw), kind: 'text' };
 }

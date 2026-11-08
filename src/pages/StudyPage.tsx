@@ -7,6 +7,7 @@ import {
   Terminal, Calculator, HelpCircle, Camera, ImagePlus, Paperclip, X
 } from 'lucide-react';
 import { MermaidDiagram } from '@/components/study/MermaidDiagram';
+import { cleanMathFormatting } from '@/lib/mathFormatter';
 import { getScan, setActiveSyllabus } from '@/lib/data';
 import { fetchGroqStudyData, type GroqAIResponse } from '@/lib/groqApi';
 import {
@@ -44,7 +45,8 @@ const MIC_LANGUAGES = [
 ];
 
 function renderInlineMarkup(rawText: string) {
-  const chunks = rawText.split(/(\*\*.*?\*\*|`.*?`)/g);
+  const cleaned = cleanMathFormatting(rawText);
+  const chunks = cleaned.split(/(\*\*.*?\*\*|`.*?`)/g);
   return chunks.map((chunk, idx) => {
     if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
       return (
@@ -65,7 +67,7 @@ function renderInlineMarkup(rawText: string) {
 }
 
 function renderFormattedChatMessage(text: string) {
-  const sanitizedText = text ? text.replace(/\\n/g, '\n').replace(/\\"/g, '"') : '';
+  const sanitizedText = text ? cleanMathFormatting(text.replace(/\\n/g, '\n').replace(/\\"/g, '"')) : '';
   const parts = sanitizedText.split(/(```[\s\S]*?```)/g);
   return (
     <div className="space-y-2.5 font-sans">
@@ -80,6 +82,33 @@ function renderFormattedChatMessage(text: string) {
           if (lang === 'mermaid' || codeContent.startsWith('graph ') || codeContent.startsWith('flowchart ')) {
             return (
               <MermaidDiagram key={pIdx} code={codeContent} />
+            );
+          }
+
+          // Visual Tree Structure / ASCII Architecture Diagram support
+          const isAsciiDiagram =
+            lang === 'ascii' ||
+            lang === 'tree' ||
+            lang === 'diagram' ||
+            (!['cpp', 'c', 'java', 'python', 'javascript', 'typescript', 'js', 'ts', 'html', 'css', 'sql', 'json'].includes(lang) &&
+              (/(\/\s*\\|\\--|\|--|├──|└──|┌─|└─|-->|\+\-\-|\bBF:\b|\bLL Rotate\b|\bRR Rotate\b|\bLR Rotate\b|\bRL Rotate\b)/.test(codeContent)));
+
+          if (isAsciiDiagram) {
+            return (
+              <div key={pIdx} className="my-2.5 rounded-2xl border-2 border-teal-400/80 bg-stone-900 p-3.5 text-stone-100 shadow-sm overflow-x-auto">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-800">
+                  <span className="text-[11px] font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-teal-400" />
+                    Visual Tree Structure / ASCII Architecture Diagram
+                  </span>
+                  <span className="text-[9px] font-semibold bg-teal-950 text-teal-300 px-2 py-0.5 rounded-full border border-teal-800">
+                    Structure View
+                  </span>
+                </div>
+                <pre className="font-mono text-xs text-emerald-300 whitespace-pre leading-relaxed select-all">
+                  {codeContent}
+                </pre>
+              </div>
             );
           }
 
@@ -102,6 +131,49 @@ function renderFormattedChatMessage(text: string) {
             {lines.map((line, lIdx) => {
               const trimmed = line.trim();
               if (!trimmed) return <div key={lIdx} className="h-1" />;
+
+              // Dedicated Problem-Solving: Final Answer Box
+              if (/^(\*\*)?(Final Answer|Result|Solution):/i.test(trimmed)) {
+                return (
+                  <div key={lIdx} className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/90 p-3 my-2 shadow-xs text-emerald-950">
+                    <div className="flex items-center gap-1.5 font-extrabold text-xs uppercase tracking-wider text-emerald-800 mb-1">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Final Answer
+                    </div>
+                    <div className="text-xs sm:text-sm font-bold text-emerald-950">
+                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Final Answer|Result|Solution):\s*(\*\*)?/i, ''))}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Dedicated Problem-Solving: Given Data Box
+              if (/^(\*\*)?(Given Data|Given Parameters|Inputs):/i.test(trimmed)) {
+                return (
+                  <div key={lIdx} className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-2.5 my-1.5 text-indigo-950">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 block mb-1">
+                      📋 Given Data
+                    </span>
+                    <div className="text-xs font-medium">
+                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Given Data|Given Parameters|Inputs):\s*(\*\*)?/i, ''))}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Dedicated Problem-Solving: Formula / Approach Box
+              if (/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):/i.test(trimmed)) {
+                return (
+                  <div key={lIdx} className="rounded-xl border border-teal-200 bg-teal-50/60 p-2.5 my-1.5 text-teal-950">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-teal-800 block mb-1">
+                      📐 Formula / Approach
+                    </span>
+                    <div className="text-xs font-semibold">
+                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):\s*(\*\*)?/i, ''))}
+                    </div>
+                  </div>
+                );
+              }
 
               if (trimmed.startsWith('### ')) {
                 return (
@@ -252,10 +324,12 @@ function render8MarkAnswer(
   }
 
   // Case 2: String answer (Handles broken literal \n, unparsed code fences, and definition boxes)
-  const cleanText = String(ans)
-    .replace(/\\n/g, '\n')
-    .replace(/\\"/g, '"')
-    .replace(/\\t/g, '  ');
+  const cleanText = cleanMathFormatting(
+    String(ans)
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\t/g, '  ')
+  );
 
   // Split out code blocks ```...```
   const segments = cleanText.split(/(```[\s\S]*?```)/g);
@@ -1716,6 +1790,24 @@ export function StudyPage({ id }: StudyPageProps) {
                 >
                   <Layers className="h-3 w-3 text-cyan-600" />
                   🎨 Flowchart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Solve the mathematical problem or equation with Given Data, Formula/Approach, Step-by-Step Calculation, and Final Answer in clean Unicode for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-violet-200 bg-violet-50/80 hover:bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Calculator className="h-3 w-3 text-violet-600" />
+                  📐 Solve Sum Step-by-Step
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Show the visual tree structure and ASCII/Mermaid diagram with balance factor calculations and rotation rules for: AVL Tree`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 px-2.5 py-1 text-[11px] font-semibold text-teal-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Layers className="h-3 w-3 text-teal-600" />
+                  🌳 Tree &amp; AVL Rotations
                 </button>
               </div>
             </div>
