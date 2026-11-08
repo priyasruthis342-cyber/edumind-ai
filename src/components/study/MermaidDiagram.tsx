@@ -73,3 +73,4 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ code }) => {
     </div>
   );
 };
+

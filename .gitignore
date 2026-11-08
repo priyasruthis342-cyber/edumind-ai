@@ -26,3 +26,7 @@ dist-ssr
 .bolt/backend/.env
 .bolt/backend/.env.*
 !.bolt/backend/.env.example
+
+# Separated Repositories
+frontend/
+backend/
