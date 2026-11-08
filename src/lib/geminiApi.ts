@@ -38,9 +38,10 @@ export interface Question12Mark {
   importance_stars?: number;
   priority_tag?: string;
   answer: {
-    // 7-Part Professional University Exam Sheet Structure
+    // Comprehensive Professional University Exam Sheet Structure
     introduction?: string;
     architecture_types?: string;
+    operations?: string;
     concrete_example?: string;
     program_code?: string;
     program_output?: string;
@@ -227,7 +228,7 @@ export async function fetchGeminiChat(
   language: 'en' | 'ta' = 'en'
 ): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/gemini/chat`, {

@@ -564,13 +564,13 @@ export function StudyPage({ id }: StudyPageProps) {
     setChatLoading(true);
     setChatError(null);
 
-    // 3. Strict Answer Relevance Context:
-    // Only pass document raw text if the student explicitly asks about the uploaded document or syllabus.
-    // Otherwise, pass minimal chapter title context so the AI strictly focuses 100% on the user's current query without pulling unrelated scanned pages!
-    const isAskingAboutDocument = /pdf|document|upload|syllabus|this chapter|these notes|summary|full text/i.test(queryToSend);
-    const relevantContext = isAskingAboutDocument
+    // 3. Strict Chat Box Focus & Document Context Isolation:
+    // Only pass document context if the student explicitly asks about the uploaded document, notes, or scan.
+    // Otherwise pass empty string so the AI strictly focuses 100% on the user's current query without pulling unrelated scanned pages!
+    const isExplicitScanRequest = /summary|summarize|scanned|this pdf|this document|uploaded file|from notes|from scan|in this pdf|in this scan/i.test(queryToSend);
+    const relevantContext = isExplicitScanRequest
       ? (scan?.raw_text || scan?.chapter_title || '')
-      : (scan?.chapter_title || '');
+      : '';
 
     try {
       const aiReply = await fetchGeminiChat(
@@ -1064,6 +1064,15 @@ export function StudyPage({ id }: StudyPageProps) {
                                       <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.architecture_types}</p>
                                     </div>
                                   )}
+                                  {q.answer?.operations && (
+                                    <div className="rounded-xl bg-cyan-50/70 border border-cyan-200 p-3.5 space-y-1">
+                                      <p className="font-bold text-cyan-900 text-xs flex items-center gap-1.5 uppercase">
+                                        <Terminal className="h-3.5 w-3.5 text-cyan-700" />
+                                        Core Operations &amp; Algorithmic Mechanics:
+                                      </p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.operations}</p>
+                                    </div>
+                                  )}
                                   {q.answer?.concrete_example && (
                                     <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3.5 space-y-1">
                                       <p className="font-bold text-amber-900 text-xs flex items-center gap-1.5 uppercase">
@@ -1376,6 +1385,19 @@ export function StudyPage({ id }: StudyPageProps) {
                                   </div>
                                 )}
 
+                                {/* Operations & Mechanics (if present) */}
+                                {q.answer?.operations && (
+                                  <div className="rounded-2xl bg-cyan-50/70 border border-cyan-200 p-4 space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-cyan-950 flex items-center gap-1.5">
+                                      <Terminal className="h-4 w-4 text-cyan-700" />
+                                      {language === 'ta' ? 'அடிப்படை செயல்பாடுகள் & சிக்கல்தன்மை' : 'Core Operations & Algorithmic Mechanics'}
+                                    </p>
+                                    <div className="text-xs sm:text-sm text-stone-800 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                      {q.answer.operations}
+                                    </div>
+                                  </div>
+                                )}
+
                                 {/* 3. Concrete Example & Real-World Relevance */}
                                 {q.answer?.concrete_example && (
                                   <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-4 space-y-2">
@@ -1617,7 +1639,7 @@ export function StudyPage({ id }: StudyPageProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam essay with all 7 sections for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  onClick={() => handleSendChat(`Write a comprehensive 12-mark university exam essay (approx 1.5 pages length) covering detailed introduction, architecture/working mechanism, core operations with complexity, clean code snippet with output, real-world use cases, and advantages/disadvantages for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
                   disabled={chatLoading}
                   className="rounded-lg border border-purple-200 bg-purple-50/80 hover:bg-purple-100 px-2.5 py-1 text-[11px] font-semibold text-purple-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                 >
