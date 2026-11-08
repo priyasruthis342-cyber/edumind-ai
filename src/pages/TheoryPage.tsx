@@ -23,6 +23,7 @@ export function TheoryPage() {
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState('');
   const [extractionError, setExtractionError] = useState<string | null>(null);
 
   // Scanned syllabus selection
@@ -39,8 +40,11 @@ export function TheoryPage() {
   const [playingStory, setPlayingStory] = useState(false);
   const [playingSpeech, setPlayingSpeech] = useState(false);
   const [loadingAudioMode, setLoadingAudioMode] = useState<'story' | 'tutor' | null>(null);
+  const [downloadingMode, setDownloadingMode] = useState<'story' | 'tutor' | null>(null);
   const [storyAudioUrl, setStoryAudioUrl] = useState<string | null>(null);
   const [tutorAudioUrl, setTutorAudioUrl] = useState<string | null>(null);
+  const [storyAudioBlob, setStoryAudioBlob] = useState<Blob | null>(null);
+  const [tutorAudioBlob, setTutorAudioBlob] = useState<Blob | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeModeRef = useRef<'story' | 'tutor' | null>(null);
@@ -56,6 +60,8 @@ export function TheoryPage() {
     setPlayingSpeech(false);
     setStoryAudioUrl(null);
     setTutorAudioUrl(null);
+    setStoryAudioBlob(null);
+    setTutorAudioBlob(null);
   };
 
   // Helper to reset generated story & audio on text or language change
@@ -176,12 +182,13 @@ export function TheoryPage() {
   // Real file extraction from uploaded PDF, image, or text file
   const handleFileUpload = async (file: File) => {
     setExtracting(true);
+    setExtractionStatus('Preparing document for extraction...');
     setExtractionError(null);
     setFileName(file.name);
     resetAllAudio();
 
     try {
-      const extracted = await extractTextFromFile(file);
+      const extracted = await extractTextFromFile(file, (status) => setExtractionStatus(status));
       const cleaned = normalizeText(extracted.text);
       if (!cleaned || cleaned.trim().length === 0) {
         throw new Error('Could not extract readable text from this file. Please make sure the file contains clear text or try another document.');
@@ -203,6 +210,7 @@ export function TheoryPage() {
       setExtractionError(err instanceof Error ? err.message : 'Failed to extract text from file.');
     } finally {
       setExtracting(false);
+      setExtractionStatus('');
     }
   };
 
@@ -369,8 +377,13 @@ export function TheoryPage() {
 
       const blob = await fetchSynthesizedSpeech(cleanContent, audioLang, mode);
       const url = URL.createObjectURL(blob);
-      if (isStory) setStoryAudioUrl(url);
-      else setTutorAudioUrl(url);
+      if (isStory) {
+        setStoryAudioBlob(blob);
+        setStoryAudioUrl(url);
+      } else {
+        setTutorAudioBlob(blob);
+        setTutorAudioUrl(url);
+      }
 
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -398,7 +411,7 @@ export function TheoryPage() {
     }
   };
 
-  // Download real MP3 audio file
+  // Download real MP3 audio file with immediate visual feedback & instant cached download
   const handleDownloadAudio = async (type: 'Story' | 'Text-to-Speech') => {
     const dynamicText = text.trim();
     if (!dynamicText) return;
@@ -406,37 +419,50 @@ export function TheoryPage() {
     const mode = type === 'Story' ? 'story' : 'tutor';
     let url = mode === 'story' ? storyAudioUrl : tutorAudioUrl;
 
-    if (!url) {
-      const content = cleanSyllabusForSpeech(
-        mode === 'story'
-          ? (storyData?.story || storyData?.audio_script || dynamicText)
-          : dynamicText
-      );
+    setDownloadingMode(mode);
 
-      try {
-        const blob = await fetchSynthesizedSpeech(content.slice(0, 3000), audioLang, mode);
-        url = URL.createObjectURL(blob);
-        if (mode === 'story') setStoryAudioUrl(url);
-        else setTutorAudioUrl(url);
-      } catch {
-        // Fallback to text file download if audio synthesis unreachable
+    try {
+      if (!url) {
+        const content = cleanSyllabusForSpeech(
+          mode === 'story'
+            ? (storyData?.story || storyData?.audio_script || dynamicText)
+            : dynamicText
+        );
+
+        try {
+          const blob = await fetchSynthesizedSpeech(content.slice(0, 3000), audioLang, mode);
+          url = URL.createObjectURL(blob);
+          if (mode === 'story') {
+            setStoryAudioBlob(blob);
+            setStoryAudioUrl(url);
+          } else {
+            setTutorAudioBlob(blob);
+            setTutorAudioUrl(url);
+          }
+        } catch {
+          // Fallback to text file download if audio synthesis unreachable
+          const element = document.createElement('a');
+          const file = new Blob([`Theory Audio (${type} Mode) - Language: ${audioLang.toUpperCase()}\n\nContent:\n${content}`], { type: 'text/plain' });
+          element.href = URL.createObjectURL(file);
+          element.download = `Edumind_${type}_Audio_${audioLang}.txt`;
+          document.body.appendChild(element);
+          element.click();
+          document.body.removeChild(element);
+          return;
+        }
+      }
+
+      if (url) {
         const element = document.createElement('a');
-        const file = new Blob([`Theory Audio (${type} Mode) - Language: ${audioLang.toUpperCase()}\n\nContent:\n${content}`], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `Edumind_${type}_Audio_${audioLang}.txt`;
+        element.href = url;
+        element.download = `Edumind_${type}_Audio_${audioLang}.mp3`;
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
-        return;
       }
+    } finally {
+      setDownloadingMode(null);
     }
-
-    const element = document.createElement('a');
-    element.href = url;
-    element.download = `Edumind_${type}_Audio_${audioLang}.mp3`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
   };
 
   return (
@@ -514,16 +540,36 @@ export function TheoryPage() {
           )}
         </div>
 
-        <div className="flex flex-wrap justify-center gap-4 p-8 border-2 border-dashed border-stone-300 rounded-2xl bg-stone-50/50 hover:border-teal-500 transition-colors">
-          <button type="button" onClick={() => photoInputRef.current?.click()} disabled={extracting} className="btn-primary flex items-center gap-2">
-            <ImagePlus className="h-4 w-4" /> Choose Photo
-          </button>
-          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={extracting} className="btn-secondary flex items-center gap-2">
-            <FileUp className="h-4 w-4" /> Upload PDF / File
-          </button>
-          <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={extracting} className="btn-secondary flex items-center gap-2">
-            <Camera className="h-4 w-4" /> Take Camera Photo
-          </button>
+        <div className="p-4 sm:p-6 border-2 border-dashed border-stone-300 rounded-2xl bg-stone-50/50 hover:border-teal-500 transition-colors">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg mx-auto">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={extracting}
+              className="btn-primary flex items-center justify-center gap-2 py-3 text-xs sm:text-sm font-semibold"
+            >
+              <ImagePlus className="h-4 w-4 shrink-0" />
+              <span>Choose Photo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => documentInputRef.current?.click()}
+              disabled={extracting}
+              className="btn-secondary flex items-center justify-center gap-2 py-3 text-xs sm:text-sm font-semibold"
+            >
+              <FileUp className="h-4 w-4 shrink-0" />
+              <span>Upload PDF / File</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={extracting}
+              className="btn-secondary flex items-center justify-center gap-2 py-3 text-xs sm:text-sm font-semibold"
+            >
+              <Camera className="h-4 w-4 shrink-0" />
+              <span>Take Camera Photo</span>
+            </button>
+          </div>
         </div>
 
         <input ref={photoInputRef} type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
@@ -531,8 +577,18 @@ export function TheoryPage() {
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
 
         {extracting && (
-          <div className="flex items-center justify-center gap-3 py-4 text-teal-700 font-bold animate-pulse">
-            <Loader2 className="h-5 w-5 animate-spin" /> Reading document and extracting actual syllabus text...
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 py-4 px-4 bg-teal-50/80 border border-teal-200 rounded-xl text-teal-800 text-xs sm:text-sm font-bold animate-pulse text-center">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-teal-600 shrink-0" />
+              <span>{extractionStatus || 'Reading document and extracting actual syllabus text...'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExtracting(false)}
+              className="mt-1 sm:mt-0 text-[11px] underline text-teal-900 hover:text-stone-900 font-semibold"
+            >
+              Cancel / Input Manually
+            </button>
           </div>
         )}
 
@@ -628,10 +684,15 @@ export function TheoryPage() {
                 </button>
                 <button
                   onClick={() => handleDownloadAudio('Text-to-Speech')}
-                  className="rounded-xl bg-white border border-teal-300 p-3 text-teal-800 hover:bg-teal-100 shadow-sm ml-auto cursor-pointer"
+                  disabled={downloadingMode === 'Text-to-Speech'}
+                  className="rounded-xl bg-white border border-teal-300 p-3 text-teal-800 hover:bg-teal-100 shadow-sm ml-auto cursor-pointer disabled:opacity-60 flex items-center justify-center min-w-[44px] min-h-[44px]"
                   title="Download Speech Audio MP3"
                 >
-                  <Download className="h-5 w-5" />
+                  {downloadingMode === 'Text-to-Speech' ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -672,10 +733,15 @@ export function TheoryPage() {
                 </button>
                 <button
                   onClick={() => handleDownloadAudio('Story')}
-                  className="rounded-xl bg-white border border-purple-300 p-3 text-purple-800 hover:bg-purple-100 shadow-sm ml-auto cursor-pointer"
+                  disabled={downloadingMode === 'Story'}
+                  className="rounded-xl bg-white border border-purple-300 p-3 text-purple-800 hover:bg-purple-100 shadow-sm ml-auto cursor-pointer disabled:opacity-60 flex items-center justify-center min-w-[44px] min-h-[44px]"
                   title="Download Story Audio MP3"
                 >
-                  <Download className="h-5 w-5" />
+                  {downloadingMode === 'Story' ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-purple-700" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
                 </button>
               </div>
             </div>

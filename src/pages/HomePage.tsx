@@ -667,39 +667,39 @@ const COURSE_CATEGORIES: CourseCategory[] = [
     }, [activeCategory, deptSearch]);
 
     return (
-      <div className="space-y-8 animate-fade-up">
-        {/* பிரகாசமான அட்ராக்டிவ் கலர்ஸ் மற்றும் புக்ஸ் இல்லஸ்ட்ரேஷன் கொண்ட பேனர் */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-indigo-700 to-purple-900 p-6 text-white shadow-2xl sm:p-10 border-2 border-white/20">
+      <div className="space-y-6 sm:space-y-8 animate-fade-up">
+        {/* பிரகாசமான அட்ராக்டிவ் கலர்ஸ் மற்றும் புக்ஸ் இல்லஸ்ட்ரேஷன் கொண்ட பேனர் - மொபைல் & லேப்டாப் இருப்புக்கும் ஏற்றது */}
+        <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-teal-600 via-indigo-700 to-purple-900 p-4 sm:p-10 text-white shadow-xl sm:shadow-2xl border border-white/20">
           <div className="absolute -right-16 -top-16 h-80 w-80 rounded-full bg-pink-500/20 blur-3xl" aria-hidden />
           <div className="absolute -left-16 -bottom-16 h-80 w-80 rounded-full bg-amber-400/20 blur-3xl" aria-hidden />
 
-          <div className="grid lg:grid-cols-2 gap-8 items-center relative z-10">
-            <div className="space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1.5 text-xs font-bold backdrop-blur-md text-amber-300 border border-white/30">
-                <Sparkles className="h-4 w-4" /> Smart AI Learning Quest
+          <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 items-center relative z-10">
+            <div className="space-y-3 sm:space-y-4">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[11px] sm:text-xs font-bold backdrop-blur-md text-amber-300 border border-white/30">
+                <Sparkles className="h-3.5 w-3.5" /> Smart AI Learning Quest
               </span>
-              <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl leading-tight">
+              <h1 className="text-2xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl leading-tight">
                 {t.heroTitle}
               </h1>
-              <p className="text-sm text-teal-100 sm:text-base leading-relaxed">
+              <p className="text-xs sm:text-base text-teal-100 leading-relaxed line-clamp-3 sm:line-clamp-none">
                 {t.heroDesc}
               </p>
-              <div className="flex flex-wrap gap-3 pt-3">
+              <div className="flex flex-wrap gap-2.5 pt-1 sm:pt-3">
                 <button
                   type="button"
                   onClick={handleHeroScan}
-                  className="btn-primary bg-gradient-to-r from-amber-400 to-amber-500 text-ink font-bold hover:from-amber-500 hover:to-amber-600 shadow-lg border-0 flex items-center gap-2 cursor-pointer"
+                  className="btn-primary bg-gradient-to-r from-amber-400 to-amber-500 text-ink font-bold hover:from-amber-500 hover:to-amber-600 shadow-lg border-0 flex items-center gap-2 cursor-pointer text-xs sm:text-sm py-2.5 px-4 sm:py-3 sm:px-5"
                 >
                   {t.scanPage} <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-center lg:justify-end">
+            <div className="hidden sm:flex justify-center lg:justify-end">
               <div className="relative group">
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-amber-400 via-rose-400 to-teal-400 opacity-50 blur-lg group-hover:opacity-80 transition duration-500"></div>
                 <div className="relative rounded-3xl bg-slate-900/70 p-4 border border-white/30 backdrop-blur-md">
-                  <BookIllustration className="w-64 sm:w-72 animate-float" />
+                  <BookIllustration className="w-52 sm:w-72 animate-float" />
                 </div>
               </div>
             </div>

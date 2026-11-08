@@ -38,10 +38,10 @@ export function ScanPage({ course }: { course: string }) {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-      <div className="space-y-8 animate-fade-up">
-        <SectionHeading eyebrow={t('scannerTitle')} title={t('scannerTitle')} subtitle={t('scannerSub')} />
-        <div className="card p-5 sm:p-8">
+    <div className="grid gap-6 sm:gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className="space-y-6 sm:space-y-8 animate-fade-up">
+        <SectionHeading eyebrow="AI Syllabus Extraction" title={t('scannerTitle')} subtitle={t('scannerSub')} />
+        <div className="card p-4 sm:p-8">
           <ScanUploader
             submitLabel={t('processScan')}
             courseLabel={course || undefined}

@@ -52,107 +52,107 @@ export function AppShell({ children, route }: AppShellProps) {
   return (
     <div className="min-h-screen bg-paper text-ink">
       <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-paper/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-bold shadow-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-bold shadow-sm text-sm sm:text-base">
               E
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-display font-bold leading-none text-ink text-base">{t('appName')}</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <p className="font-display font-bold leading-none text-ink text-sm sm:text-base truncate">{t('appName')}</p>
                 {userName && (
-                  <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-bold text-teal-800">
-                    Hello, {userName}!
+                  <span className="hidden xs:inline-flex rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-800 truncate max-w-[110px] sm:max-w-none">
+                    {userName}
                   </span>
                 )}
               </div>
-              {/* மொழிக்கு ஏற்ப மாறக்கூடிய மோட்டிவேஷனல் வரி */}
-              <p className="mt-1 text-xs font-medium text-stone-600 italic">
+              {/* மொழிக்கு ஏற்ப மாறக்கூடிய மோட்டிவேஷனல் வரி - மொபைலில் gọnமாக வைக்கப்பட்டுள்ளது */}
+              <p className="hidden sm:block mt-1 text-xs font-medium text-stone-600 italic truncate max-w-md">
                 "{currentQuote}"
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <LanguageSelect />
 
             <button
               type="button"
-              className="rounded-xl p-2 text-stone-600 hover:bg-stone-100 transition-colors"
+              className="rounded-xl p-1.5 sm:p-2 text-stone-600 hover:bg-stone-100 transition-colors"
               title="Notifications"
             >
-              <Bell className="h-5 w-5" />
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
             <button
               onClick={handleCustomLogout}
-              className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 transition-colors cursor-pointer"
+              className="flex items-center gap-1 rounded-xl bg-rose-600 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 transition-colors cursor-pointer"
               title="Logout"
             >
-              <LogOut className="h-4 w-4" />
-              Logout
+              <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
 
-        {/* மெனு ஆப்ஷன்கள் பாக்ஸ் வரிசை */}
-        <div className="border-t border-stone-200/60 bg-stone-50/50 px-4 py-2.5 sm:px-6">
-          <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-x-auto">
+        {/* மெனு ஆப்ஷன்கள் பாக்ஸ் வரிசை - மொபைல் போன்களில் மென்மையான ஸ்லைடிங் ஆதரவு */}
+        <div className="border-t border-stone-200/60 bg-stone-50/70 px-2.5 py-2 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto whitespace-nowrap pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
             <a
               href="#/"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0 ${
                 route.name === 'home'
                   ? 'bg-teal-600 text-white shadow-teal-600/20'
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              <BookOpen className="h-4 w-4" /> Courses
+              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Courses
             </a>
             <a
               href="#/scan"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0 ${
                 route.name === 'scan'
                   ? 'bg-teal-600 text-white shadow-teal-600/20'
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              <ScanText className="h-4 w-4" /> Scanner
+              <ScanText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Scanner
             </a>
             <a
               href="#/study"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0 ${
                 route.name === 'study'
                   ? 'bg-teal-600 text-white shadow-teal-600/20'
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              <BookMarked className="h-4 w-4" /> My Study
+              <BookMarked className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> My Study
             </a>
             <a
               href="#/theory"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0 ${
                 route.name === 'theory'
                   ? 'bg-teal-600 text-white shadow-teal-600/20'
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              <BrainCircuit className="h-4 w-4" /> Theory Audio
+              <BrainCircuit className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Theory Audio
             </a>
             <a
               href="#/progress"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0 ${
                 route.name === 'progress'
                   ? 'bg-teal-600 text-white shadow-teal-600/20'
                   : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              <BarChart3 className="h-4 w-4" /> My Progress
+              <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> My Progress
             </a>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">{children}</main>
     </div>
   );
 }

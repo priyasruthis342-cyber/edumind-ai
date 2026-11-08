@@ -255,4 +255,42 @@ export async function fetchGeminiChat(
   }
 }
 
+/**
+ * Ultra-fast server-side Gemini Vision OCR for textbook pages, notes & camera scans.
+ * Bypasses heavy mobile WASM downloads and extracts text in ~1-2 seconds.
+ */
+export async function extractImageWithGemini(file: Blob | File): Promise<string> {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const mimeType = file.type || 'image/jpeg';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/gemini/extract-image-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64, mimeType }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Vision extraction failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    return data.text || '';
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
 

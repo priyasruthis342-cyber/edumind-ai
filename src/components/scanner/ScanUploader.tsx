@@ -33,6 +33,7 @@ export function ScanUploader({
   const [kind, setKind] = useState<IntakeKind>('notes');
   const [chapterHint, setChapterHint] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +44,10 @@ export function ScanUploader({
       return;
     }
     setExtracting(true);
+    setExtractionStatus('Preparing document for extraction...');
     setError(null);
     try {
-      const result = await extractTextFromFile(file);
+      const result = await extractTextFromFile(file, (status) => setExtractionStatus(status));
       if (!result.text || !result.text.trim()) {
         throw new Error('No readable text could be found in the document. Please ensure the file contains legible text or scanned pages.');
       }
@@ -59,6 +61,7 @@ export function ScanUploader({
       setError(err instanceof Error ? err.message : 'Failed to extract text from document.');
     } finally {
       setExtracting(false);
+      setExtractionStatus('');
     }
   };
 
@@ -111,28 +114,51 @@ export function ScanUploader({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-8 text-center transition duration-200 sm:p-12 ${
+        className={`group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-5 text-center transition duration-200 sm:p-10 ${
           dragging ? 'border-teal-600 bg-teal-50' : 'border-stone-300 bg-white hover:border-teal-500 hover:bg-teal-50/40'
         }`}
       >
-        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lift transition group-hover:scale-105">
+        <span className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lift transition group-hover:scale-105">
           {extracting ? <Loader2 className="h-7 w-7 animate-spin" aria-hidden /> : <UploadCloud className="h-7 w-7" aria-hidden />}
         </span>
         <div className="space-y-1">
-          <p className="font-semibold text-ink">{t('dropTitle')}</p>
-          <p className="text-sm text-stone-600">{t('dropHint')}</p>
+          <p className="font-semibold text-ink text-sm sm:text-base">{t('dropTitle')}</p>
+          <p className="text-xs sm:text-sm text-stone-600">{t('dropHint')}</p>
         </div>
-        <div className="flex flex-wrap justify-center gap-3">
-          <button type="button" onClick={() => photoInputRef.current?.click()} disabled={busy} className="btn-primary">
-            <ImagePlus className="h-4 w-4" aria-hidden />
+
+        {extracting && (
+          <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-4 py-2 border border-teal-200 text-xs font-bold text-teal-800 animate-pulse">
+            <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+            {extractionStatus || 'Reading document & extracting syllabus text...'}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg pt-1">
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={busy}
+            className="btn-primary w-full py-2.5 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <ImagePlus className="h-4 w-4 shrink-0" aria-hidden />
             {t('choosePhoto')}
           </button>
-          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={busy} className="btn-secondary">
-            <FileUp className="h-4 w-4" aria-hidden />
+          <button
+            type="button"
+            onClick={() => documentInputRef.current?.click()}
+            disabled={busy}
+            className="btn-secondary w-full py-2.5 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <FileUp className="h-4 w-4 shrink-0" aria-hidden />
             {t('uploadDocument')}
           </button>
-          <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={busy} className="btn-secondary">
-            <Camera className="h-4 w-4" aria-hidden />
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={busy}
+            className="btn-secondary w-full py-2.5 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <Camera className="h-4 w-4 shrink-0" aria-hidden />
             {t('takePhoto')}
           </button>
         </div>
