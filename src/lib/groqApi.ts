@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
-// groqApi.ts — Fetch helper for the EduMind Groq AI backend
-// Backend endpoint: POST http://localhost:5050/api/ai/ask
+// groqApi.ts — Fetch helper for EduMind AI Study & Quiz Engine
+// Backend endpoint: POST /api/ai/ask (Powered by Google Gemini AI)
 // ─────────────────────────────────────────────────────────────
 
 import { getBackendUrl } from './apiConfig';
@@ -13,7 +13,7 @@ export interface QuizItem {
   answer: string;      // e.g. "A"
 }
 
-export interface GroqAIResponse {
+export interface StudyQuizResponse {
   success: boolean;
   summary: string;
   questions: string[];   // 5 important study questions
@@ -21,14 +21,14 @@ export interface GroqAIResponse {
   quiz: QuizItem[];      // 5 MCQ quiz items
 }
 
+// Backward-compatible alias
+export type GroqAIResponse = StudyQuizResponse;
+
 /**
- * Send the scanned/pasted study text to the Groq Llama backend.
+ * Send the study text to the Gemini AI backend.
  * Returns AI-generated questions, answers, summary and quiz.
- *
- * @param prompt - The raw study text extracted from the scan
- * @throws Error if the network request fails or the backend returns an error
  */
-export async function fetchGroqStudyData(prompt: string): Promise<GroqAIResponse> {
+export async function fetchStudyQuizData(prompt: string): Promise<StudyQuizResponse> {
   let response: Response;
 
   try {
@@ -52,7 +52,7 @@ export async function fetchGroqStudyData(prompt: string): Promise<GroqAIResponse
     );
   }
 
-  const data: GroqAIResponse = await response.json();
+  const data: StudyQuizResponse = await response.json();
 
   if (!data.success) {
     throw new Error('AI service returned an unsuccessful response.');
@@ -60,3 +60,6 @@ export async function fetchGroqStudyData(prompt: string): Promise<GroqAIResponse
 
   return data;
 }
+
+// Backward-compatible alias
+export const fetchGroqStudyData = fetchStudyQuizData;

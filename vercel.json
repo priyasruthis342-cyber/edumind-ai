@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://edumind-backend.onrender.com/api/:path*"
+      "destination": "https://edumind-backend-ropy.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

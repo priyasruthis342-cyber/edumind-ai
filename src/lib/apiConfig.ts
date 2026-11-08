@@ -9,7 +9,7 @@ export function getBackendUrl(): string {
   if (envUrl && /^https?:\/\//i.test(envUrl)) {
     // If in production build running in a browser, prevent accidental localhost calls
     if (import.meta.env.PROD && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
-      return 'https://edumind-backend.onrender.com';
+      return 'https://edumind-backend-ropy.onrender.com';
     }
     return envUrl.replace(/\/+$/, '');
   }
@@ -21,5 +21,5 @@ export function getBackendUrl(): string {
 
   // 3. In cloud production deployment (e.g. Vercel), default to the deployed Render backend
   // to avoid 404 errors on relative /api paths
-  return 'https://edumind-backend.onrender.com';
+  return 'https://edumind-backend-ropy.onrender.com';
 }

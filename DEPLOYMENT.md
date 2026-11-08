@@ -55,7 +55,7 @@ Deploy the entire project (Express API + Vite React Single Page Application) as 
 | `NODE_ENV` | Backend | Runtime mode | `production` |
 | `MONGODB_URI` | Backend | MongoDB Atlas Connection String | `mongodb+srv://user:pass@cluster.mongodb.net/edumaind?retryWrites=true&w=majority` |
 | `GEMINI_API_KEY` | Backend | Google Gemini API Key for Anna University Exam Q&A and Story synthesis | `AQ.Ab8RN6...` |
-| `GROQ_API_KEY` | Backend | Groq API Key (high-speed fallback model `openai/gpt-oss-120b`) | `gsk_...` |
+| `GEMINI_API_KEY` | Backend | Google Gemini API Key (Exclusive AI for chat, exam answers & quiz) | `AIzaSy...` |
 | `RAZORPAY_KEY_ID` | Both | Razorpay Key ID for ₹1 Daily Pass checkout | `rzp_test_TwxrpdkuvcZNdH` |
 | `RAZORPAY_KEY_SECRET` | Backend | Razorpay Secret for order creation & signature verification | `996rZ...` |
 | `CORS_ORIGIN` | Backend | Allowed frontend origins (comma-separated or `*`) | `*` or `https://edumind.vercel.app` |

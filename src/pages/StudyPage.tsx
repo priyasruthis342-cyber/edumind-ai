@@ -640,7 +640,7 @@ export function StudyPage({ id }: StudyPageProps) {
         loadedContent = true;
       }
     } catch (err) {
-      console.warn('Groq quiz generation notice:', err);
+      console.warn('AI quiz generation notice:', err);
     }
 
     if (!loadedContent) {
