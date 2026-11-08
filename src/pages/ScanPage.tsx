@@ -6,7 +6,7 @@ import { navigate, studyPath } from '@/lib/router';
 import { ScanUploader, type ScanSubmission } from '@/components/scanner/ScanUploader';
 import { SectionHeading } from '@/components/ui';
 
-const MIN_SCAN_CHARACTERS = 200;
+const MIN_SCAN_CHARACTERS = 15;
 const MAX_SCAN_CHARACTERS = 200_000;
 
 function baseName(fileName: string): string {

@@ -36,8 +36,11 @@ export default {
         },
       },
       boxShadow: {
-        card: '0 1px 2px rgba(11, 11, 15, 0.06), 0 8px 24px -12px rgba(11, 11, 15, 0.18)',
-        lift: '0 2px 4px rgba(11, 11, 15, 0.08), 0 18px 40px -16px rgba(219, 39, 119, 0.35)',
+        xs: '0 1px 2px rgba(15, 23, 42, 0.05)',
+        card: '0 2px 4px -1px rgba(15, 23, 42, 0.04), 0 10px 24px -6px rgba(15, 23, 42, 0.07)',
+        'card-hover': '0 4px 8px -2px rgba(15, 23, 42, 0.06), 0 16px 36px -6px rgba(15, 23, 42, 0.11)',
+        float: '0 8px 30px -4px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04)',
+        lift: '0 2px 4px rgba(11, 11, 15, 0.08), 0 18px 40px -16px rgba(13, 148, 136, 0.25)',
       },
       keyframes: {
         'fade-up': {

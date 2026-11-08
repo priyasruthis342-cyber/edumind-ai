@@ -114,8 +114,8 @@ export function ScanUploader({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-5 text-center transition duration-200 sm:p-10 ${
-          dragging ? 'border-teal-600 bg-teal-50' : 'border-stone-300 bg-white hover:border-teal-500 hover:bg-teal-50/40'
+        className={`group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-5 text-center transition duration-200 sm:p-10 shadow-xs ${
+          dragging ? 'border-teal-600 bg-teal-50' : 'border-stone-300/90 bg-white/95 hover:border-teal-500 hover:bg-teal-50/30'
         }`}
       >
         <span className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lift transition group-hover:scale-105">
@@ -232,7 +232,12 @@ export function ScanUploader({
 
       {error && <ErrorNotice message={error} />}
 
-      <button type="button" onClick={handleSubmit} disabled={submitting} className="btn-primary w-full sm:w-auto">
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={submitting || busy}
+        className="btn-primary w-full sm:w-auto bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+      >
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
         {submitting ? t('processing') : submitLabel}
       </button>

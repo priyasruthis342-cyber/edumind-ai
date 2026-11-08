@@ -10,12 +10,33 @@ export interface ExtractedFile {
 const OCR_ASSET_DIR = `${import.meta.env.BASE_URL}tesseract/`;
 
 /**
- * Rapid canvas-based image downscaling & compression.
- * Reduces 15MB mobile camera photos to ~300KB in under 40ms, preventing browser tab freezes.
+ * Cleans garbage OCR artifacts (lone copyright/trademark symbols, stray punctuation lines)
+ * produced by noisy camera scans or weak handwriting recognition.
  */
-async function compressAndDownscaleImage(file: Blob | File, maxDim = 1600): Promise<Blob> {
-  // If it's a small file (< 800KB), return as is
-  if (file.size < 800 * 1024) {
+export function cleanOcrNoise(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .split('\n')
+    .map((line) => line.replace(/[©®™]/g, '').trim())
+    .filter((line) => {
+      if (!line) return false;
+      // Discard lines that consist exclusively of punctuation or garbage symbols
+      if (/^[;:*~^_`|\\/\-=+.,?!#@$%&()<>{}[\]'"]+$/.test(line)) return false;
+      // Discard tiny lines without any actual alphanumeric characters
+      if (line.length <= 2 && !/[a-zA-Z0-9\u0B80-\u0BFF\u0900-\u097F]/.test(line)) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
+/**
+ * Rapid canvas-based image downscaling & compression.
+ * Preserves high resolution (1800px) and quality (0.88) so handwritten pen/pencil strokes remain clear.
+ */
+async function compressAndDownscaleImage(file: Blob | File, maxDim = 1800): Promise<Blob> {
+  // If it's already a compact file (< 900KB), return as is
+  if (file.size < 900 * 1024) {
     return file;
   }
 
@@ -52,7 +73,7 @@ async function compressAndDownscaleImage(file: Blob | File, maxDim = 1600): Prom
           resolve(blob || file);
         },
         'image/jpeg',
-        0.85
+        0.88
       );
     };
 
@@ -154,22 +175,23 @@ async function extractPdf(file: File, onProgress?: (msg: string) => void): Promi
 }
 
 async function extractImage(file: Blob | File, onProgress?: (msg: string) => void): Promise<string> {
-  onProgress?.('Optimizing photo for reading...');
-  const optimizedBlob = await compressAndDownscaleImage(file, 1600);
+  onProgress?.('Optimizing photo for handwriting & text reading...');
+  const optimizedBlob = await compressAndDownscaleImage(file, 1800);
 
-  // 1. High-Speed Gemini Vision OCR (runs in ~1s on server, 0MB mobile download)
+  // 1. High-Speed Gemini Vision OCR (runs in ~1-2s on server, understands messy handwriting)
   try {
-    onProgress?.('Extracting syllabus text with AI Vision...');
-    const visionText = await withTimeout(
+    onProgress?.('Transcribing handwriting & text with Gemini Vision...');
+    const rawVisionText = await withTimeout(
       extractImageWithGemini(optimizedBlob),
-      10000,
+      25000,
       'Gemini Vision timeout'
     );
-    if (visionText && visionText.trim().length > 10) {
-      return visionText.trim();
+    const cleanedVision = cleanOcrNoise(rawVisionText);
+    if (cleanedVision && cleanedVision.length >= 8) {
+      return cleanedVision;
     }
   } catch (visionErr) {
-    console.warn('Gemini Vision fallback to local OCR:', visionErr);
+    console.warn('Gemini Vision note (falling back to local engine):', visionErr);
   }
 
   // 2. Client-side Tesseract OCR fallback
@@ -190,12 +212,17 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
     try {
       const { data } = await withTimeout(
         worker.recognize(optimizedBlob),
-        15000,
+        18000,
         'OCR recognition timed out'
       );
       await worker.terminate();
-      if (data && data.text && data.text.trim()) {
-        return data.text.trim();
+      if (data && data.text) {
+        const cleanedLocal = cleanOcrNoise(data.text);
+        // Only return if it has genuine coherent words, not lone garbage fragments
+        const words = cleanedLocal.match(/[a-zA-Z]{2,}/g) || [];
+        if (cleanedLocal.length >= 15 && words.length >= 3) {
+          return cleanedLocal;
+        }
       }
     } catch (recErr) {
       await worker.terminate().catch(() => {});
@@ -205,7 +232,7 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
     console.warn('Local OCR attempt error:', localErr);
   }
 
-  throw new Error('The document photo could not be read clearly. Please make sure the text is well-lit and legible, or upload a PDF.');
+  throw new Error('The handwriting or document photo could not be read clearly. Please make sure the lighting is bright and handwriting is legible, or paste the text directly.');
 }
 
 export async function extractTextFromFile(

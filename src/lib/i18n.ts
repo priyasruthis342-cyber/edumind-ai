@@ -49,7 +49,7 @@ const en: Dictionary = {
   chapterHint: 'Chapter name (optional)',
   processScan: 'Analyse and open My Study',
   processing: 'Reading your page...',
-  scanTooShort: 'We need a bit more text to build a study page. Please add more content.',
+  scanTooShort: 'Please provide at least a short note, formula, or question (minimum 15 characters) to build your study page.',
   scanFailed: 'We could not read this file. Try a clearer photo, a text-based PDF, or paste the text.',
   courseSelect: 'Course',
   studyTitle: 'My Study',

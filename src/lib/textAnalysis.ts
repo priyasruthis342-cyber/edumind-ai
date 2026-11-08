@@ -75,10 +75,18 @@ export function normalizeText(raw: string): string {
 }
 
 export function splitSentences(text: string): string[] {
-  return text
+  const strict = text
     .split(/\n+|(?<=[.!?])\s+/)
-    .map((s) => s.trim().replace(/^[-•*\d.)\s]+(?=[A-Za-z])/, ''))
-    .filter((s) => s.length >= 30 && s.length <= 300 && s.split(' ').length >= 5 && /[a-z]/i.test(s));
+    .map((s) => s.trim().replace(/^[-•*\d.)\s]+(?=[A-Za-z0-9])/, ''))
+    .filter((s) => s.length >= 12 && s.length <= 400 && /[a-z0-9]/i.test(s));
+
+  if (strict.length > 0) return strict;
+
+  // Flexible fallback for short handwritten notes or bulleted lines
+  return text
+    .split('\n')
+    .map((l) => l.trim().replace(/^[-•*\d.)\s]+/, ''))
+    .filter((l) => l.length >= 4 && /[a-z0-9]/i.test(l));
 }
 
 function wordsOf(text: string): string[] {
@@ -125,10 +133,19 @@ export function extractDefinitions(sentences: string[]): Definition[] {
 
 export function rankTerms(text: string): RankedTerm[] {
   const counts = frequencyOf(text);
-  return [...counts.entries()]
+  const multiple = [...counts.entries()]
     .filter(([, count]) => count >= 2)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 40)
+    .map(([term, mentions]) => ({ term, mentions }));
+
+  if (multiple.length >= 2) return multiple;
+
+  // Flexible fallback for brief notes: include single-mention key terms
+  return [...counts.entries()]
+    .filter(([term, count]) => count >= 1 && term.length >= 3)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 15)
     .map(([term, mentions]) => ({ term, mentions }));
 }
 
@@ -144,7 +161,19 @@ export function extractConcepts(text: string): Concept[] {
   const definitions = extractDefinitions(sentences);
   const definedTerms = new Map(definitions.map((d) => [d.term.toLowerCase(), d]));
 
-  return rankTerms(text)
+  const terms = rankTerms(text);
+  if (terms.length === 0 && sentences.length > 0) {
+    // If no distinct terms, convert available lines to core concepts
+    return sentences.slice(0, 5).map((line, idx) => ({
+      term: `Concept ${idx + 1}`,
+      mentions: 1,
+      tier: 'medium',
+      question: `What is the significance of ${clip(line, 40)}?`,
+      context: clip(line, 180),
+    }));
+  }
+
+  return terms
     .slice(0, 12)
     .map(({ term, mentions }) => {
       const context = sentences.find((s) => new RegExp(`\\b${escapeRegex(term)}\\b`, 'i').test(s)) ?? '';
@@ -166,13 +195,21 @@ export function buildNotes(text: string, chapterTitle: string): NotesDocument {
     score: sentenceScore(sentence, counts),
   }));
   const byScore = [...scored].sort((a, b) => b.score - a.score);
-  const overviewPicks = byScore.slice(0, 3).sort((a, b) => a.index - b.index);
+  let overviewPicks = byScore.slice(0, 3).sort((a, b) => a.index - b.index);
+  if (overviewPicks.length === 0 && sentences.length > 0) {
+    overviewPicks = sentences.slice(0, 3).map((s, idx) => ({ sentence: s, index: idx, score: 1 }));
+  }
+
   const overviewIndexes = new Set(overviewPicks.map((p) => p.index));
-  const keyPoints = byScore
+  let keyPoints = byScore
     .filter((p) => !overviewIndexes.has(p.index))
     .slice(0, 8)
     .sort((a, b) => a.index - b.index)
     .map((p) => clip(p.sentence, 260));
+
+  if (keyPoints.length === 0 && sentences.length > 0) {
+    keyPoints = sentences.map((p) => clip(p, 260));
+  }
 
   const definitions = extractDefinitions(sentences).slice(0, 10);
   const revisionChecklist = rankTerms(text)

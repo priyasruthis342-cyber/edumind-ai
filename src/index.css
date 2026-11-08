@@ -4,38 +4,38 @@
 
 @layer base {
   :root {
-    --paper: 255 247 251;
+    --paper: 248 247 242;
     --surface: 255 255 255;
-    --ink: 11 11 15;
-    --stone-50: 250 250 249;
-    --stone-100: 245 245 244;
-    --stone-200: 231 229 228;
-    --stone-300: 214 211 209;
-    --stone-400: 168 162 158;
-    --stone-500: 120 113 108;
-    --stone-600: 87 83 78;
-    --stone-700: 68 64 60;
-    --stone-800: 41 37 36;
-    --stone-900: 28 25 23;
-    --stone-950: 12 10 9;
+    --ink: 15 23 42;
+    --stone-50: 249 248 245;
+    --stone-100: 243 242 237;
+    --stone-200: 228 226 219;
+    --stone-300: 210 207 199;
+    --stone-400: 158 153 144;
+    --stone-500: 115 110 102;
+    --stone-600: 84 80 74;
+    --stone-700: 60 57 52;
+    --stone-800: 41 39 36;
+    --stone-900: 26 25 23;
+    --stone-950: 15 14 13;
     color-scheme: light;
   }
 
   .dark {
-    --paper: 11 11 15;
-    --surface: 24 24 30;
-    --ink: 245 245 247;
-    --stone-50: 28 28 34;
-    --stone-100: 36 36 44;
-    --stone-200: 46 46 56;
-    --stone-300: 63 63 75;
-    --stone-400: 92 92 105;
-    --stone-500: 122 122 136;
-    --stone-600: 161 161 174;
-    --stone-700: 196 196 207;
-    --stone-800: 220 220 227;
-    --stone-900: 237 237 242;
-    --stone-950: 248 248 250;
+    --paper: 15 17 23;
+    --surface: 24 28 38;
+    --ink: 248 250 252;
+    --stone-50: 28 32 44;
+    --stone-100: 36 41 56;
+    --stone-200: 48 54 72;
+    --stone-300: 64 72 94;
+    --stone-400: 96 106 132;
+    --stone-500: 128 138 166;
+    --stone-600: 164 173 198;
+    --stone-700: 198 205 222;
+    --stone-800: 224 229 240;
+    --stone-900: 240 243 250;
+    --stone-950: 250 252 255;
     color-scheme: dark;
   }
 
@@ -44,6 +44,14 @@
   }
   body {
     @apply bg-paper font-sans text-ink antialiased transition-colors duration-300;
+    background-color: rgb(var(--paper));
+    background-image:
+      radial-gradient(at 0% 0%, rgba(204, 251, 241, 0.40) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(254, 243, 199, 0.38) 0px, transparent 45%),
+      radial-gradient(at 50% 100%, rgba(238, 242, 255, 0.40) 0px, transparent 55%),
+      radial-gradient(at 100% 100%, rgba(253, 230, 238, 0.28) 0px, transparent 45%);
+    background-attachment: fixed;
+    background-size: 100% 100%;
     line-height: 1.5;
   }
   h1,
@@ -56,16 +64,19 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-500 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-surface px-5 py-3 text-sm font-semibold text-ink transition duration-200 hover:border-pink-500 hover:text-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-500 disabled:cursor-not-allowed disabled:text-stone-500;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300/90 bg-white/90 px-5 py-3 text-sm font-semibold text-ink shadow-sm transition duration-200 hover:border-teal-500 hover:text-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 disabled:cursor-not-allowed disabled:text-stone-500;
   }
   .card {
-    @apply rounded-2xl border border-stone-200/80 bg-surface shadow-card;
+    @apply rounded-2xl border border-stone-200/90 bg-white/95 shadow-card backdrop-blur-sm transition-all duration-200;
+  }
+  .card:hover {
+    @apply shadow-card-hover border-stone-300/90;
   }
   .input {
-    @apply w-full rounded-xl border border-stone-300 bg-surface px-4 py-3 text-sm text-ink placeholder:text-stone-500 transition focus:border-pink-500 focus:outline-none focus:ring-4 focus:ring-pink-100 dark:focus:ring-pink-900/50;
+    @apply w-full rounded-xl border border-stone-300/90 bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 shadow-sm transition focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100 dark:focus:ring-teal-900/40;
   }
 }
 

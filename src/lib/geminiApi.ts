@@ -269,7 +269,7 @@ export async function extractImageWithGemini(file: Blob | File): Promise<string>
 
   const mimeType = file.type || 'image/jpeg';
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/gemini/extract-image-text`, {
