@@ -425,12 +425,14 @@ export function StudyPage({ id }: StudyPageProps) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
+        // If recording was stopped or cancelled, ignore any late arriving results
+        if (!isListeningRef.current) return;
         let fullTranscript = '';
         for (let i = 0; i < event.results.length; ++i) {
           fullTranscript += event.results[i][0].transcript + ' ';
         }
         const text = fullTranscript.trim();
-        if (text) {
+        if (text && isListeningRef.current) {
           setChatInput(text);
         }
       };
@@ -469,14 +471,17 @@ export function StudyPage({ id }: StudyPageProps) {
 
   const stopListening = () => {
     isListeningRef.current = false;
+    setIsListening(false);
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop();
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.abort();
       } catch (e) {
         console.warn(e);
       }
     }
-    setIsListening(false);
   };
 
   const toggleListening = () => {
@@ -530,8 +535,23 @@ export function StudyPage({ id }: StudyPageProps) {
   };
 
   const handleSendChat = async (customQuery?: string) => {
+    // 1. Immediately abort and detach any active microphone input to prevent speech re-populating chatInput
+    isListeningRef.current = false;
+    setIsListening(false);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.abort();
+      } catch (_e) {}
+    }
+
     const queryToSend = (customQuery || chatInput).trim();
     if (!queryToSend || chatLoading) return;
+
+    // 2. Clear out the chat input box completely immediately so it never lingers
+    setChatInput('');
 
     const userMsg: ChatMessage = {
       id: 'user_' + Date.now(),
@@ -541,14 +561,21 @@ export function StudyPage({ id }: StudyPageProps) {
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
-    setChatInput('');
     setChatLoading(true);
     setChatError(null);
+
+    // 3. Strict Answer Relevance Context:
+    // Only pass document raw text if the student explicitly asks about the uploaded document or syllabus.
+    // Otherwise, pass minimal chapter title context so the AI strictly focuses 100% on the user's current query without pulling unrelated scanned pages!
+    const isAskingAboutDocument = /pdf|document|upload|syllabus|this chapter|these notes|summary|full text/i.test(queryToSend);
+    const relevantContext = isAskingAboutDocument
+      ? (scan?.raw_text || scan?.chapter_title || '')
+      : (scan?.chapter_title || '');
 
     try {
       const aiReply = await fetchGeminiChat(
         queryToSend,
-        scan?.raw_text || '',
+        relevantContext,
         language
       );
       const newMsgId = 'gemini_' + Date.now();
@@ -1599,6 +1626,24 @@ export function StudyPage({ id }: StudyPageProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleSendChat(`How many times has this topic appeared in university exams, and what are the most repeated questions for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}?`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-amber-200 bg-amber-50/80 hover:bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Star className="h-3 w-3 text-amber-600" />
+                  📊 Exam Frequency &amp; Trends
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat(`Give concise 2-mark definitions and 3-mark concept breakdowns for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
+                  disabled={chatLoading}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <BookOpen className="h-3 w-3 text-emerald-600" />
+                  📖 2 &amp; 3-Mark Definitions
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSendChat(`Provide complete clean compilable programming code with comments and exact terminal execution output for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
                   disabled={chatLoading}
                   className="rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 px-2.5 py-1 text-[11px] font-semibold text-teal-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
@@ -1614,15 +1659,6 @@ export function StudyPage({ id }: StudyPageProps) {
                 >
                   <Layers className="h-3 w-3 text-cyan-600" />
                   🎨 Flowchart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat(`Explain in simple English words: provide the clear definition and key categories for: ${geminiData?.chapter_title || scan?.chapter_title || 'this topic'}`)}
-                  disabled={chatLoading}
-                  className="rounded-lg border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                >
-                  <BookOpen className="h-3 w-3 text-emerald-600" />
-                  💡 Simple Summary
                 </button>
               </div>
             </div>
