@@ -46,14 +46,27 @@ export async function insertScan(input: {
   chapter_title: string;
   raw_text: string;
 }): Promise<Scan> {
-  const scans: Scan[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.SCANS) || '[]');
+  let scans: Scan[] = [];
+  try {
+    scans = JSON.parse(localStorage.getItem(STORAGE_KEYS.SCANS) || '[]');
+  } catch {
+    scans = [];
+  }
   const newScan: Scan = {
     id: 'scan_' + Math.random().toString(36).substring(2, 9),
     ...input,
     created_at: new Date().toISOString(),
   };
-  scans.unshift(newScan);
-  localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify(scans));
+  // Cap recent scans to 10 items to prevent localStorage quota exhaustion & main thread lag
+  const updatedScans = [newScan, ...scans.slice(0, 9)];
+  try {
+    localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify(updatedScans));
+  } catch (err) {
+    console.warn('LocalStorage quota limit reached, trimming older scans:', err);
+    try {
+      localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify([newScan]));
+    } catch {}
+  }
   return newScan;
 }
 

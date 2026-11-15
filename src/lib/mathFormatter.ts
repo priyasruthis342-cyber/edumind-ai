@@ -158,3 +158,4 @@ export function cleanMathFormatting(text: string): string {
 
   return out.trim();
 }
+

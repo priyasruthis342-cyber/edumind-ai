@@ -125,92 +125,193 @@ function renderFormattedChatMessage(text: string) {
           );
         }
 
-        const lines = part.split('\n');
+        const rawLines = part.split('\n');
+        const renderedElements: React.ReactNode[] = [];
+        let i = 0;
+        while (i < rawLines.length) {
+          const line = rawLines[i];
+          const trimmed = line.trim();
+
+          // Markdown Table detection: starts and ends with '|'
+          if (trimmed.startsWith('|') && trimmed.endsWith('|') && i + 1 < rawLines.length && /^\|[\s\-:|]+\|$/.test(rawLines[i + 1].trim())) {
+            const tableLines: string[] = [];
+            while (i < rawLines.length && rawLines[i].trim().startsWith('|') && rawLines[i].trim().endsWith('|')) {
+              tableLines.push(rawLines[i].trim());
+              i++;
+            }
+            if (tableLines.length >= 2) {
+              const parseRow = (r: string) => r.slice(1, -1).split('|').map((c) => c.trim());
+              const headerCells = parseRow(tableLines[0]);
+              // skip separator row at index 1
+              const dataRows = tableLines.slice(2).map(parseRow);
+              renderedElements.push(
+                <div key={`tbl_${i}`} className="my-3 overflow-x-auto rounded-xl border border-teal-200/90 shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-teal-700 text-white font-bold">
+                      <tr>
+                        {headerCells.map((h, hIdx) => (
+                          <th key={hIdx} className="p-2.5 border-b border-teal-800">
+                            {renderInlineMarkup(h)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-200 bg-white">
+                      {dataRows.map((row, rIdx) => (
+                        <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-teal-50/20'}>
+                          {row.map((cell, cIdx) => (
+                            <td key={cIdx} className="p-2.5 text-stone-800 font-medium">
+                              {renderInlineMarkup(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+              continue;
+            }
+          }
+
+          // Markdown Image card: ![alt](url)
+          const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/);
+          if (imgMatch) {
+            const altText = imgMatch[1] || 'Educational Illustration';
+            const imgUrl = imgMatch[2];
+            renderedElements.push(
+              <div key={`img_${i}`} className="my-3 overflow-hidden rounded-2xl border-2 border-teal-300/80 bg-stone-900/5 shadow-md">
+                <div className="flex items-center justify-between bg-teal-800/90 px-3.5 py-1.5 text-white">
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
+                    <Sparkles className="h-3.5 w-3.5 text-teal-300" />
+                    {altText}
+                  </span>
+                  <span className="text-[10px] font-semibold text-teal-200 bg-teal-950/60 px-2 py-0.5 rounded-full">
+                    Visual Diagram
+                  </span>
+                </div>
+                <div className="relative flex justify-center bg-white p-2">
+                  <img
+                    src={imgUrl}
+                    alt={altText}
+                    loading="lazy"
+                    className="max-h-80 w-auto rounded-xl object-contain shadow-xs transition-transform duration-200 hover:scale-[1.02]"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <div className="bg-stone-50 px-3 py-1.5 text-center text-[11px] font-medium text-stone-600 border-t border-stone-200">
+                  📌 {altText}
+                </div>
+              </div>
+            );
+            i++;
+            continue;
+          }
+
+          // Dedicated Problem-Solving: Final Answer Box
+          if (/^(\*\*)?(Final Answer|Result|Solution):/i.test(trimmed)) {
+            renderedElements.push(
+              <div key={`fa_${i}`} className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/90 p-3 my-2 shadow-xs text-emerald-950">
+                <div className="flex items-center gap-1.5 font-extrabold text-xs uppercase tracking-wider text-emerald-800 mb-1">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Final Answer
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-emerald-950">
+                  {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Final Answer|Result|Solution):\s*(\*\*)?/i, ''))}
+                </div>
+              </div>
+            );
+            i++;
+            continue;
+          }
+
+          // Dedicated Problem-Solving: Given Data Box
+          if (/^(\*\*)?(Given Data|Given Parameters|Inputs):/i.test(trimmed)) {
+            renderedElements.push(
+              <div key={`gd_${i}`} className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-2.5 my-1.5 text-indigo-950">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 block mb-1">
+                  📋 Given Data
+                </span>
+                <div className="text-xs font-medium">
+                  {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Given Data|Given Parameters|Inputs):\s*(\*\*)?/i, ''))}
+                </div>
+              </div>
+            );
+            i++;
+            continue;
+          }
+
+          // Dedicated Problem-Solving: Formula / Approach Box
+          if (/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):/i.test(trimmed)) {
+            renderedElements.push(
+              <div key={`f_${i}`} className="rounded-xl border border-teal-200 bg-teal-50/60 p-2.5 my-1.5 text-teal-950">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-teal-800 block mb-1">
+                  📐 Formula / Approach
+                </span>
+                <div className="text-xs font-semibold">
+                  {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):\s*(\*\*)?/i, ''))}
+                </div>
+              </div>
+            );
+            i++;
+            continue;
+          }
+
+          if (trimmed.startsWith('### ')) {
+            renderedElements.push(
+              <h4 key={`h4_${i}`} className="font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100">
+                {renderInlineMarkup(trimmed.replace(/^###\s*/, ''))}
+              </h4>
+            );
+            i++;
+            continue;
+          }
+          if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+            renderedElements.push(
+              <h3 key={`h3_${i}`} className="font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200">
+                {renderInlineMarkup(trimmed.replace(/^#+\s*/, ''))}
+              </h3>
+            );
+            i++;
+            continue;
+          }
+          if (trimmed.startsWith('> ')) {
+            renderedElements.push(
+              <div key={`q_${i}`} className="border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed">
+                {renderInlineMarkup(trimmed.replace(/^>\s*/, ''))}
+              </div>
+            );
+            i++;
+            continue;
+          }
+          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            renderedElements.push(
+              <div key={`li_${i}`} className="flex items-start gap-1.5 text-xs text-stone-700 pl-2">
+                <span className="text-teal-600 font-bold">•</span>
+                <span>{renderInlineMarkup(trimmed.replace(/^[-*]\s*/, ''))}</span>
+              </div>
+            );
+            i++;
+            continue;
+          }
+
+          if (!trimmed) {
+            renderedElements.push(<div key={`sp_${i}`} className="h-1" />);
+          } else {
+            renderedElements.push(
+              <p key={`p_${i}`} className="text-xs text-stone-800 leading-relaxed font-normal">
+                {renderInlineMarkup(line)}
+              </p>
+            );
+          }
+          i++;
+        }
+
         return (
           <div key={pIdx} className="space-y-1">
-            {lines.map((line, lIdx) => {
-              const trimmed = line.trim();
-              if (!trimmed) return <div key={lIdx} className="h-1" />;
-
-              // Dedicated Problem-Solving: Final Answer Box
-              if (/^(\*\*)?(Final Answer|Result|Solution):/i.test(trimmed)) {
-                return (
-                  <div key={lIdx} className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/90 p-3 my-2 shadow-xs text-emerald-950">
-                    <div className="flex items-center gap-1.5 font-extrabold text-xs uppercase tracking-wider text-emerald-800 mb-1">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      Final Answer
-                    </div>
-                    <div className="text-xs sm:text-sm font-bold text-emerald-950">
-                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Final Answer|Result|Solution):\s*(\*\*)?/i, ''))}
-                    </div>
-                  </div>
-                );
-              }
-
-              // Dedicated Problem-Solving: Given Data Box
-              if (/^(\*\*)?(Given Data|Given Parameters|Inputs):/i.test(trimmed)) {
-                return (
-                  <div key={lIdx} className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-2.5 my-1.5 text-indigo-950">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 block mb-1">
-                      📋 Given Data
-                    </span>
-                    <div className="text-xs font-medium">
-                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Given Data|Given Parameters|Inputs):\s*(\*\*)?/i, ''))}
-                    </div>
-                  </div>
-                );
-              }
-
-              // Dedicated Problem-Solving: Formula / Approach Box
-              if (/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):/i.test(trimmed)) {
-                return (
-                  <div key={lIdx} className="rounded-xl border border-teal-200 bg-teal-50/60 p-2.5 my-1.5 text-teal-950">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-teal-800 block mb-1">
-                      📐 Formula / Approach
-                    </span>
-                    <div className="text-xs font-semibold">
-                      {renderInlineMarkup(trimmed.replace(/^(\*\*)?(Formula \/ Approach|Formula|Core Formula|Approach):\s*(\*\*)?/i, ''))}
-                    </div>
-                  </div>
-                );
-              }
-
-              if (trimmed.startsWith('### ')) {
-                return (
-                  <h4 key={lIdx} className="font-extrabold text-teal-900 text-xs sm:text-sm pt-2 pb-0.5 border-b border-teal-100">
-                    {renderInlineMarkup(trimmed.replace(/^###\s*/, ''))}
-                  </h4>
-                );
-              }
-              if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
-                return (
-                  <h3 key={lIdx} className="font-extrabold text-ink text-sm sm:text-base pt-2.5 pb-1 border-b border-stone-200">
-                    {renderInlineMarkup(trimmed.replace(/^#+\s*/, ''))}
-                  </h3>
-                );
-              }
-              if (trimmed.startsWith('> ')) {
-                return (
-                  <div key={lIdx} className="border-l-3 border-teal-600 bg-teal-50/70 rounded-r-xl p-2.5 my-1.5 text-stone-900 font-medium text-xs leading-relaxed">
-                    {renderInlineMarkup(trimmed.replace(/^>\s*/, ''))}
-                  </div>
-                );
-              }
-              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                return (
-                  <div key={lIdx} className="flex items-start gap-1.5 text-xs text-stone-700 pl-2">
-                    <span className="text-teal-600 font-bold">•</span>
-                    <span>{renderInlineMarkup(trimmed.replace(/^[-*]\s*/, ''))}</span>
-                  </div>
-                );
-              }
-
-              return (
-                <p key={lIdx} className="text-xs text-stone-800 leading-relaxed font-normal">
-                  {renderInlineMarkup(line)}
-                </p>
-              );
-            })}
+            {renderedElements}
           </div>
         );
       })}
@@ -423,6 +524,12 @@ function render8MarkAnswer(
     </div>
   );
 }
+
+interface CachedStudySession {
+  geminiData: GeminiExamQAResponse | null;
+  groqData: GroqAIResponse | null;
+}
+const studySessionCache = new Map<string, CachedStudySession>();
 
 export function StudyPage({ id }: StudyPageProps) {
   // ── Scan data (from localStorage) ────────────────────────────
@@ -726,16 +833,28 @@ export function StudyPage({ id }: StudyPageProps) {
     void loadScanData();
   }, [id]);
 
-  // ── Step 2: Fetch Gemini Exam Q&A and Groq Quiz ──────────────
+  // ── Step 2: Fetch Gemini Exam Q&A and Groq Quiz (With In-Memory Session Cache) ──
   const loadExamContent = useCallback(async (text: string, lang: 'en' | 'ta') => {
+    const cacheKey = `${id}_${lang}`;
+    const cached = studySessionCache.get(cacheKey);
+    if (cached && (cached.geminiData || cached.groqData)) {
+      if (cached.geminiData) setGeminiData(cached.geminiData);
+      if (cached.groqData) setGroqData(cached.groqData);
+      setAiLoading(false);
+      return;
+    }
+
     setAiLoading(true);
     setAiError(null);
     let loadedContent = false;
+    let newGeminiData: GeminiExamQAResponse | null = null;
+    let newGroqData: GroqAIResponse | null = null;
 
     try {
       const geminiResult = await fetchGeminiExamQA(text, lang);
       if (geminiResult) {
         setGeminiData(geminiResult);
+        newGeminiData = geminiResult;
         loadedContent = true;
       }
     } catch (err) {
@@ -746,17 +865,20 @@ export function StudyPage({ id }: StudyPageProps) {
       const groqResult = await fetchGroqStudyData(text);
       if (groqResult) {
         setGroqData(groqResult);
+        newGroqData = groqResult;
         loadedContent = true;
       }
     } catch (err) {
       console.warn('AI quiz generation notice:', err);
     }
 
-    if (!loadedContent) {
+    if (loadedContent) {
+      studySessionCache.set(cacheKey, { geminiData: newGeminiData, groqData: newGroqData });
+    } else {
       setAiError('Could not process this document. Please ensure the uploaded material contains readable text.');
     }
     setAiLoading(false);
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (scan && scan.raw_text) {
