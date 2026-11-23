@@ -1498,7 +1498,7 @@ export function StudyPage({ id }: StudyPageProps) {
                         <div key={q.id} className="rounded-2xl border-2 border-indigo-200/80 bg-white p-6 shadow-sm space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">
-                              Q.{q.id} • 8 Marks Analytical Question
+                              Q.{q.id} • {language === 'ta' ? '8 மதிப்பெண் பகுப்பாய்வு வினா' : '8 Marks Analytical Question'}
                             </span>
                             <span className="flex items-center gap-0.5 text-amber-500">
                               <Star className="h-4 w-4 fill-amber-400" />
@@ -1523,7 +1523,11 @@ export function StudyPage({ id }: StudyPageProps) {
                               }`}
                             >
                               {isExpanded ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                              <span>{isExpanded ? 'Hide Structured 8-Mark Answer' : 'View Structured 8-Mark Answer'}</span>
+                              <span>
+                                {isExpanded
+                                  ? (language === 'ta' ? '8-மதிப்பெண் தீர்வை மறை' : 'Hide Structured 8-Mark Answer')
+                                  : (language === 'ta' ? 'முழு 8-மதிப்பெண் பதிலைக் காண்க' : 'View Structured 8-Mark Answer')}
+                              </span>
                             </button>
 
                             {isExpanded && (
@@ -1562,11 +1566,11 @@ export function StudyPage({ id }: StudyPageProps) {
                         <div key={q.id} className="rounded-3xl border-2 border-purple-200 bg-white p-6 sm:p-8 shadow-md space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-purple-800 uppercase tracking-wide">
-                              Q.{q.id} • 12 Marks Master Essay
+                              Q.{q.id} • {language === 'ta' ? '12 மதிப்பெண் முதன்மைக் கட்டுரை' : '12 Marks Master Essay'}
                             </span>
                             <span className="flex items-center gap-1 text-xs font-extrabold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                               <Star className="h-3.5 w-3.5 fill-amber-400" />
-                              University Exam High-Scorer (12/12)
+                              {language === 'ta' ? 'பல்கலைக்கழக தேர்வு வினா (12/12)' : 'University Exam High-Scorer (12/12)'}
                             </span>
                           </div>
 
@@ -1585,7 +1589,11 @@ export function StudyPage({ id }: StudyPageProps) {
                               }`}
                             >
                               {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              <span>{isExpanded ? 'Hide 12-Mark Breakdown' : 'View Full 12-Mark Exam Sheet Breakdown'}</span>
+                              <span>
+                                {isExpanded
+                                  ? (language === 'ta' ? '12-மதிப்பெண் தீர்வை மறை' : 'Hide 12-Mark Breakdown')
+                                  : (language === 'ta' ? 'முழு 12-மதிப்பெண் விடைத் தாள் அமைப்பைக் காண்க' : 'View Full 12-Mark Exam Sheet Breakdown')}
+                              </span>
                             </button>
 
                             {isExpanded && (

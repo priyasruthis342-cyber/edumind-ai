@@ -752,171 +752,76 @@ export function MathStudyPage() {
       {/* ─────────────────────────────────────────────────────────────
           3. LEARNING VIEW ARENA — AI Teacher (Left) + Blackboard (Right)
       ───────────────────────────────────────────────────────────── */}
-      <div id="chalkboard-arena" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div id="chalkboard-arena" className="w-full max-w-5xl mx-auto space-y-6">
 
-        {/* ────── LEFT PANEL: AI Teacher Interactive Panel (4 Cols) ────── */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200 shadow-xl p-5 space-y-4">
-
-            {/* Header: AI Teacher + Online Status */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        {/* ────── TOP AI TEACHER VOICE BANNER & GREETING ────── */}
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200/90 shadow-lg p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
+              👩‍🏫
+            </div>
+            <div>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
-                  🤖
-                </div>
-                <h3 className="font-extrabold text-slate-800 text-sm">AI Teacher</h3>
+                <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">AI Math Teacher</h3>
+                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span>Online</span>
+                </span>
               </div>
-              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
-                <span>Online</span>
-              </span>
+              <p className="text-xs text-purple-700 font-medium mt-0.5">
+                {selectedLanguage === 'ta' ? 'இயல்பான பேச்சுத் தமிழில் கற்பித்தல்' : 'Conversational Step-by-Step Spoken Walkthrough'}
+              </p>
             </div>
+          </div>
 
-            {/* Teacher Dynamic Speech Bubble with Arrow */}
-            <div className="relative bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-4 text-xs sm:text-sm font-medium text-purple-950 leading-relaxed shadow-inner">
-              <div className="flex items-start gap-2">
-                <Volume2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5 animate-pulse" />
-                <p>{teacherBubbleText}</p>
-              </div>
-              {/* Bubble pointer triangle */}
-              <div className="absolute -bottom-2 left-8 w-4 h-4 bg-gradient-to-br from-purple-50 to-indigo-50 border-r border-b border-purple-200 rotate-45"></div>
+          {/* Teacher Speech Bubble */}
+          <div className="relative flex-1 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-3.5 text-xs sm:text-sm font-medium text-purple-950 leading-relaxed shadow-inner w-full">
+            <div className="flex items-start gap-2">
+              <Volume2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5 animate-pulse" />
+              <p className="line-clamp-3 sm:line-clamp-none">{teacherBubbleText}</p>
             </div>
+          </div>
 
-            {/* Live Interactive Microphone & Sound Waves Area */}
-            <div className="pt-2 pb-1 flex flex-col items-center justify-center space-y-3">
-              {/* Animated Sound Wave Bars */}
-              <div className="flex items-center gap-1 h-6">
-                {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.4, 0.8, 0.6].map((height, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      height: `${(isPlayingAudio || isListening ? height : 0.2) * 24}px`,
-                      transition: 'height 0.2s ease-in-out'
-                    }}
-                    className={`w-1 rounded-full ${
-                      isListening
-                        ? 'bg-rose-500'
-                        : isPlayingAudio
-                        ? 'bg-purple-600 animate-pulse'
-                        : 'bg-slate-300'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {/* Big Circular Microphone Button */}
-              <div className="relative">
-                {isListening && (
-                  <span className="animate-ping absolute inset-0 rounded-full bg-purple-400 opacity-75"></span>
-                )}
+          {/* Start / Step Control Quick Action */}
+          {activeLesson && (
+            <div className="shrink-0 flex items-center gap-2">
+              {!isTeachingStarted ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isListening) {
-                      stopVoiceListening();
-                      if (speechTranscript) {
-                        void handleAskDoubt(speechTranscript);
-                      }
-                    } else {
-                      startVoiceListening();
-                    }
-                  }}
-                  className={`relative w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer ${
-                    isListening
-                      ? 'bg-gradient-to-tr from-rose-600 to-pink-500 text-white ring-4 ring-rose-200'
-                      : 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/30'
-                  }`}
-                  title={isListening ? 'Tap to submit doubt' : 'Tap to speak your doubt'}
+                  onClick={handleStartTeaching}
+                  className="py-2.5 px-5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer active:scale-95 transition-transform flex items-center gap-1.5"
                 >
-                  <Mic className={`h-7 w-7 ${isListening ? 'animate-bounce' : ''}`} />
+                  <Play className="h-3.5 w-3.5 fill-white" />
+                  <span>{selectedLanguage === 'ta' ? 'பாடத்தை தொடங்கு' : 'Start Lesson'}</span>
                 </button>
-              </div>
-
-              {/* Live Status Label */}
-              <p className="text-xs font-bold text-center">
-                {isListening ? (
-                  <span className="text-rose-600 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping"></span>
-                    Listening to your voice... Speak now!
-                  </span>
-                ) : (
-                  <span className="text-slate-600">
-                    🎙️ Tap Mic to Speak / Ask Doubt
-                  </span>
-                )}
-              </p>
-
-              {/* Speech transcript preview */}
-              {speechTranscript && (
-                <div className="w-full text-xs p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-medium">
-                  &ldquo;{speechTranscript}&rdquo;
+              ) : (
+                <div className="flex items-center gap-1 bg-purple-100/70 p-1 rounded-2xl">
                   <button
                     type="button"
-                    onClick={() => handleAskDoubt(speechTranscript)}
-                    className="ml-2 text-indigo-700 font-bold underline"
+                    onClick={() => handleGoToStep(Math.max(0, currentStepIndex - 1))}
+                    disabled={currentStepIndex <= 0}
+                    className="p-1.5 rounded-xl text-purple-700 hover:bg-white disabled:opacity-30 cursor-pointer"
+                    title="Previous Step"
                   >
-                    Send Doubt
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="px-2 font-mono font-bold text-xs text-purple-900">
+                    Step {currentStepIndex + 1} / {(activeLesson.board_content?.steps || []).length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleGoToStep(Math.min((activeLesson.board_content?.steps || []).length - 1, currentStepIndex + 1))}
+                    disabled={currentStepIndex >= (activeLesson.board_content?.steps || []).length - 1}
+                    className="p-1.5 rounded-xl text-purple-700 hover:bg-white disabled:opacity-30 cursor-pointer"
+                    title="Next Step"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Schoolgirl Teacher Image Card */}
-            <div className="rounded-2xl overflow-hidden border border-purple-100 bg-gradient-to-b from-purple-100/50 to-indigo-100/50 p-2 flex justify-center">
-              <img
-                src="/teacher-girl.jpg"
-                alt="Teacher Girl with Pointer"
-                className="w-full max-h-56 object-contain rounded-xl hover:scale-102 transition-transform duration-300"
-              />
-            </div>
-
-            {/* Doubt Text Input Box (Alternative to Mic) */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-700 block">
-                Ask Teacher a Doubt / Question:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={userDoubtInput}
-                  onChange={(e) => setUserDoubtInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAskDoubt()}
-                  placeholder={selectedLanguage === 'ta' ? 'புரியல, மறுபடியும் சொல்லுங்க...' : 'Type doubt or question...'}
-                  className="flex-1 text-xs py-2 px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAskDoubt()}
-                  disabled={askingDoubt || !userDoubtInput.trim()}
-                  className="p-2 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white rounded-xl cursor-pointer"
-                >
-                  {askingDoubt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Active Doubt Resolution Box */}
-            {activeDoubt && (
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5 animate-in fade-in">
-                <p className="font-bold flex items-center gap-1 text-amber-800">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-600" /> Teacher&apos;s Simpler Explanation:
-                </p>
-                <p className="leading-relaxed">{activeDoubt.teacher_reply}</p>
-                {activeDoubt.simplified_step_explanation && (
-                  <p className="p-2 bg-white/80 rounded-lg font-mono text-[11px] text-slate-800">
-                    {activeDoubt.simplified_step_explanation}
-                  </p>
-                )}
-                <p className="font-semibold text-emerald-700 italic">
-                  {activeDoubt.understanding_check}
-                </p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-
-        {/* ────── RIGHT PANEL: Wooden-Framed Slate Blackboard (8 Cols) ────── */}
-        <div className="lg:col-span-8 space-y-4">
           <div
             ref={chalkboardRef}
             className={`relative overflow-hidden rounded-3xl bg-[#143224] text-white shadow-2xl transition-all ${
@@ -979,19 +884,35 @@ export function MathStudyPage() {
                   <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
                 </div>
 
-                {/* Problem Statement */}
-                <div className="text-base sm:text-lg font-mono text-emerald-100 flex items-start gap-2">
-                  <span className="text-amber-400 font-bold shrink-0">Solve :</span>
-                  <span className="font-semibold">
-                    {activeLesson.board_content?.question || inputQuestion}
+                {/* Complete Problem Statement Box */}
+                <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-700/60 font-mono text-emerald-100">
+                  <span className="text-amber-300 font-bold block text-xs sm:text-sm font-sans uppercase tracking-wider mb-1">
+                    {selectedLanguage === 'ta' ? 'முழுக் கணக்கு / வினா (Question Statement):' : 'Full Mathematical Problem / Question:'}
                   </span>
+                  <p className="text-sm sm:text-base font-semibold leading-relaxed whitespace-pre-wrap">
+                    {activeLesson.board_content?.question || inputQuestion}
+                  </p>
                 </div>
 
-                {/* Core Formula (If Available) */}
-                {activeLesson.board_content?.core_formula && (
-                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
-                    <span className="text-amber-300 font-bold">Formula : </span>
-                    {activeLesson.board_content.core_formula}
+                {/* Core Formula & Given Data Grid */}
+                {(activeLesson.board_content?.given_data || activeLesson.board_content?.core_formula) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {activeLesson.board_content?.given_data && (
+                      <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                        <span className="text-amber-300 font-bold block font-sans text-xs">
+                          {selectedLanguage === 'ta' ? 'கொடுக்கப்பட்ட விவரங்கள் (Given Data):' : 'Given Data:'}
+                        </span>
+                        <p className="mt-0.5 whitespace-pre-wrap">{activeLesson.board_content.given_data}</p>
+                      </div>
+                    )}
+                    {activeLesson.board_content?.core_formula && (
+                      <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                        <span className="text-amber-300 font-bold block font-sans text-xs">
+                          {selectedLanguage === 'ta' ? 'சூத்திரம் (Core Formula):' : 'Governing Formula:'}
+                        </span>
+                        <p className="mt-0.5 whitespace-pre-wrap">{activeLesson.board_content.core_formula}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1119,7 +1040,7 @@ export function MathStudyPage() {
                 />
               </div>
 
-              {/* Volume & Fullscreen Actions */}
+              {/* Volume & Fullscreen Actions (Download Button Removed) */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1142,31 +1063,130 @@ export function MathStudyPage() {
                 >
                   {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
-
-                {/* Download Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (audioUrl) {
-                      const a = document.createElement('a');
-                      a.href = audioUrl;
-                      a.download = `${activeLesson?.detected_topic || 'Math_Lesson'}_Audio.mp3`;
-                      a.click();
-                    } else {
-                      alert('Generating audio file for download...');
-                      const speech = activeLesson?.spoken_audio_script || activeLesson?.teacher_dialogue || teacherBubbleText;
-                      void speakTeacherText(speech);
-                    }
-                  }}
-                  className="py-1.5 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] flex items-center gap-1.5 shadow cursor-pointer shrink-0"
-                >
-                  <Download className="h-3 w-3" />
-                  <span>Download</span>
-                </button>
               </div>
             </div>
 
           </div>
+
+        {/* ────── INTERACTIVE DOUBT RESOLUTION & MIC BAR (BELOW BLACKBOARD) ────── */}
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200 shadow-md p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-purple-600" />
+              <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">
+                {selectedLanguage === 'ta' ? 'ஆசிரியையிடம் சந்தேகம் கேளுங்கள் (Ask Doubt)' : 'Ask Teacher a Doubt / Question'}
+              </h4>
+            </div>
+            <span className="text-xs text-slate-500">
+              {selectedLanguage === 'ta' ? 'குரல் அல்லது எழுத்து மூலம்' : 'Voice or Text'}
+            </span>
+          </div>
+
+          {/* Mic and Input Row */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Mic Button with Sound Waves */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isListening) {
+                    stopVoiceListening();
+                    if (speechTranscript) {
+                      void handleAskDoubt(speechTranscript);
+                    }
+                  } else {
+                    startVoiceListening();
+                  }
+                }}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isListening
+                    ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+                title={isListening ? 'Tap to submit doubt' : 'Tap to speak your doubt'}
+              >
+                <Mic className={`h-5 w-5 ${isListening ? 'animate-bounce' : ''}`} />
+              </button>
+
+              {/* Sound Wave preview */}
+              <div className="flex items-center gap-1 h-6 px-2">
+                {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.4].map((height, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: `${(isPlayingAudio || isListening ? height : 0.2) * 20}px`,
+                      transition: 'height 0.2s ease-in-out'
+                    }}
+                    className={`w-1 rounded-full ${
+                      isListening
+                        ? 'bg-rose-500'
+                        : isPlayingAudio
+                        ? 'bg-purple-600 animate-pulse'
+                        : 'bg-slate-200'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Doubt Input Text Field */}
+            <div className="flex-1 flex gap-2">
+              <input
+                type="text"
+                value={userDoubtInput}
+                onChange={(e) => setUserDoubtInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAskDoubt()}
+                placeholder={
+                  selectedLanguage === 'ta'
+                    ? 'எ.கா: படி 2 புரியல, மறுபடியும் எளிமையா சொல்லுங்க...'
+                    : 'e.g. I did not understand Step 2, please explain more simply...'
+                }
+                className="flex-1 text-xs sm:text-sm py-2.5 px-4 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50/50"
+              />
+              <button
+                type="button"
+                onClick={() => handleAskDoubt()}
+                disabled={askingDoubt || !userDoubtInput.trim()}
+                className="py-2.5 px-5 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow cursor-pointer flex items-center gap-1.5"
+              >
+                {askingDoubt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <span className="hidden sm:inline">Ask</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Speech transcript preview */}
+          {speechTranscript && (
+            <div className="text-xs p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 font-medium flex items-center justify-between">
+              <span>🎙️ &ldquo;{speechTranscript}&rdquo;</span>
+              <button
+                type="button"
+                onClick={() => handleAskDoubt(speechTranscript)}
+                className="text-indigo-700 font-bold underline cursor-pointer ml-2"
+              >
+                Send Doubt
+              </button>
+            </div>
+          )}
+
+          {/* Active Doubt Resolution Box */}
+          {activeDoubt && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs sm:text-sm text-amber-950 space-y-2 animate-in fade-in">
+              <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                <Lightbulb className="h-4 w-4 text-amber-600" />
+                {selectedLanguage === 'ta' ? 'ஆசிரியையின் எளிய விளக்கம்:' : "Teacher's Simpler Explanation:"}
+              </p>
+              <p className="leading-relaxed font-sans">{activeDoubt.teacher_reply}</p>
+              {activeDoubt.simplified_step_explanation && (
+                <p className="p-3 bg-white/90 rounded-xl font-mono text-xs text-slate-800 border border-amber-200/60 leading-relaxed whitespace-pre-wrap">
+                  {activeDoubt.simplified_step_explanation}
+                </p>
+              )}
+              <p className="font-semibold text-emerald-700 italic">
+                {activeDoubt.understanding_check}
+              </p>
+            </div>
+          )}
         </div>
 
       </div>
