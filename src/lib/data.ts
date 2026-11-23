@@ -65,7 +65,7 @@ export async function insertScan(input: {
     console.warn('LocalStorage quota limit reached, trimming older scans:', err);
     try {
       localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify([newScan]));
-    } catch {}
+    } catch { }
   }
   return newScan;
 }

@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useEffect } from 'react';
-import { LogOut, Bell, BookOpen, BookMarked, BrainCircuit, BarChart3, ScanText } from 'lucide-react';
+import { LogOut, Bell, BookOpen, BookMarked, BrainCircuit, BarChart3, ScanText, Calculator } from 'lucide-react';
 import { useApp } from '@/context/useApp';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import type { Route } from '@/lib/router';
@@ -137,6 +137,16 @@ export function AppShell({ children, route }: AppShellProps) {
               }`}
             >
               <BrainCircuit className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Theory Audio
+            </a>
+            <a
+              href="#/mathematical-study"
+              className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition-all shrink-0 ${
+                route.name === 'math'
+                  ? 'bg-gradient-to-r from-teal-600 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25 scale-102'
+                  : 'bg-white/90 text-stone-700 border border-stone-200/90 hover:bg-white hover:border-teal-400 shadow-xs'
+              }`}
+            >
+              <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-teal-600" /> Mathematical Study
             </a>
             <a
               href="#/progress"

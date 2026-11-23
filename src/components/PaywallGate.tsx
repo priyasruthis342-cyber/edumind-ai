@@ -65,14 +65,27 @@ export function PaymentDialog({ onClose, onPaid }: { onClose: () => void; onPaid
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Preload checkout script immediately when dialog opens for instant modal launch
+  useEffect(() => {
+    void loadRazorpayScript();
+  }, []);
+
   // Live Razorpay Payment Checkout Handler
   const handleRazorpayPayment = async () => {
     setProcessing(true);
     setError(null);
+
+    // 8-second safety guard to ensure spinner never gets stuck indefinitely
+    const safetyTimer = setTimeout(() => {
+      setProcessing(false);
+      setError('Payment gateway connection timed out. Please check your connection and tap retry.');
+    }, 8000);
+
     try {
       await startRazorpayCheckout({
         amountRupees: PASS_AMOUNT_RUPEES,
         onSuccess: async (paymentId: string) => {
+          clearTimeout(safetyTimer);
           await payForToday(paymentId);
           setDone(true);
           setProcessing(false);
@@ -81,14 +94,17 @@ export function PaymentDialog({ onClose, onPaid }: { onClose: () => void; onPaid
           }, 1000);
         },
         onError: (err: Error) => {
+          clearTimeout(safetyTimer);
           setError(err.message || 'Payment was cancelled or failed.');
           setProcessing(false);
         },
         onDismiss: () => {
+          clearTimeout(safetyTimer);
           setProcessing(false);
         },
       });
     } catch (err: unknown) {
+      clearTimeout(safetyTimer);
       setError(err instanceof Error ? err.message : 'Could not initialize payment gateway.');
       setProcessing(false);
     }

@@ -12,7 +12,7 @@ export const LANGUAGES: { code: LanguageCode; label: string; speechTag: string }
 type Dictionary = Record<string, string>;
 
 const en: Dictionary = {
-  appName: 'Edumind AI',
+  appName: 'EDU Mind AI',
   tagline: 'Scan it. Study it. Level up.',
   heroTitle: 'Turn any page into a study quest',
   heroSub: 'Scan a textbook page, get your chapter, important concepts, AI notes, a practice test and audio lessons in your language.',
@@ -22,6 +22,7 @@ const en: Dictionary = {
   navHome: 'Courses',
   navScan: 'Scanner',
   navTheory: 'Theory Audio',
+  navMath: 'Mathematical Study',
   navProfile: 'My Progress',
   signIn: 'Sign in',
   signUp: 'Create account',
@@ -98,7 +99,7 @@ const en: Dictionary = {
   stop: 'Stop',
   voiceMissing: 'This device has no voice installed for your language. Install a Hindi/Indian-language voice in device settings to hear this lesson.',
   audioUnsupported: 'Audio playback is not supported in this browser.',
-  payTitle: 'Unlock Edumind Pro for today',
+  payTitle: 'Unlock EDU Mind Pro for today',
   payBody: 'Scanning, audio lessons and practice tests cost just Rs.1 per day.',
   payButton: 'Pay Rs.1 and continue',
   payDone: 'Payment received. Your study tools are unlocked for today.',
@@ -131,7 +132,7 @@ const en: Dictionary = {
   close: 'Close',
   languageLabel: 'Language',
   profileSaved: 'Language saved',
-  welcomeTitle: 'Welcome to Edumind AI',
+  welcomeTitle: 'Welcome to EDU Mind AI',
   welcomeBody: 'Pick a course to begin your first quest.',
   levelTitle: 'Level titles',
   uploadFile: 'Choose a file',

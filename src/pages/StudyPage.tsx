@@ -19,7 +19,7 @@ import {
   type Question8MarkAnswer,
   type Question12Mark
 } from '@/lib/geminiApi';
-import type { Scan } from '@/types';
+import type { Scan, LanguageCode } from '@/types';
 
 interface StudyPageProps {
   id: string;
@@ -326,7 +326,7 @@ function renderFormattedChatMessage(text: string) {
  */
 function render8MarkAnswer(
   ans: string | Question8MarkAnswer | any,
-  language: 'en' | 'ta' = 'en',
+  language: LanguageCode | string = 'en',
   onCopy?: (code: string) => void
 ) {
   if (!ans) return null;
@@ -834,7 +834,7 @@ export function StudyPage({ id }: StudyPageProps) {
   }, [id]);
 
   // ── Step 2: Fetch Gemini Exam Q&A and Groq Quiz (With In-Memory Session Cache) ──
-  const loadExamContent = useCallback(async (text: string, lang: 'en' | 'ta') => {
+  const loadExamContent = useCallback(async (text: string, lang: LanguageCode | string) => {
     const cacheKey = `${id}_${lang}`;
     const cached = studySessionCache.get(cacheKey);
     if (cached && (cached.geminiData || cached.groqData)) {

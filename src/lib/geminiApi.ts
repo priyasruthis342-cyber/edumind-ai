@@ -5,6 +5,7 @@
 
 import { getBackendUrl } from './apiConfig';
 import { cleanMathFormatting } from './mathFormatter';
+import type { LanguageCode } from '@/types';
 
 const BACKEND_URL = getBackendUrl();
 
@@ -89,7 +90,7 @@ export interface GeminiStoryResponse {
  */
 export async function fetchGeminiExamQA(
   prompt: string,
-  language: 'en' | 'ta' = 'en'
+  language: LanguageCode | string = 'en'
 ): Promise<GeminiExamQAResponse> {
   let response: Response;
 
@@ -131,7 +132,7 @@ export async function fetchGeminiExamQA(
  */
 export async function fetchGeminiStory(
   text: string,
-  language: 'en' | 'ta' = 'ta'
+  language: LanguageCode | string = 'ta'
 ): Promise<GeminiStoryResponse> {
   let response: Response;
   const controller = new AbortController();
@@ -176,7 +177,7 @@ export async function fetchGeminiStory(
  */
 export async function fetchSynthesizedSpeech(
   text: string,
-  language: 'en' | 'ta' = 'ta',
+  language: LanguageCode | string = 'ta',
   mode: 'story' | 'tutor' = 'story'
 ): Promise<Blob> {
   let response: Response;
@@ -226,7 +227,7 @@ export interface GeminiChatResponse {
 export async function fetchGeminiChat(
   query: string,
   context?: string,
-  language: 'en' | 'ta' = 'en',
+  language: LanguageCode | string = 'en',
   imageBase64?: string,
   mimeType?: string
 ): Promise<string> {
@@ -291,6 +292,67 @@ export async function extractImageWithGemini(file: Blob | File): Promise<string>
     const data = await res.json();
     return cleanMathFormatting(data.text || '');
   } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+export interface MathStep {
+  step_number: number;
+  title: string;
+  work: string;
+  marking_tip: string;
+}
+
+export interface MathBoardContent {
+  question: string;
+  core_formula: string;
+  given_data: string;
+  steps: MathStep[];
+  final_answer: string;
+  exam_presentation_tip: string;
+}
+
+export interface MathTeacherLessonResponse {
+  success: boolean;
+  greeting: string;
+  detected_topic: string;
+  board_content: MathBoardContent;
+  ready_prompt: string;
+  teacher_dialogue: string;
+  spoken_audio_script: string;
+  language: string;
+}
+
+/**
+ * Fetches an interactive AI Math Teacher lesson with blackboard content,
+ * step-wise marking tips, and conversational spoken walk-through.
+ */
+export async function fetchMathTeacherLesson(
+  mathQuestion: string,
+  language: LanguageCode | string = 'ta',
+  imageBase64?: string,
+  mimeType?: string
+): Promise<MathTeacherLessonResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/gemini/math-teacher-lesson`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mathQuestion, language, imageBase64, mimeType }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Math Teacher request failed (${res.status})`);
+    }
+
+    return await res.json();
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
     throw err;
   }

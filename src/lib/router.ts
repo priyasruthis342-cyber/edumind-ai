@@ -4,6 +4,7 @@ export type Route =
   | { name: 'home' }
   | { name: 'scan'; course: string }
   | { name: 'theory' }
+  | { name: 'math' }
   | { name: 'study'; scanId: string | null }
   | { name: 'progress' };
 
@@ -17,6 +18,9 @@ export function parseRoute(hash: string): Route {
       return { name: 'scan', course: params.get('course') ?? '' };
     case 'theory':
       return { name: 'theory' };
+    case 'math':
+    case 'mathematical-study':
+      return { name: 'math' };
     case 'study':
       return { name: 'study', scanId: segments[1] ?? null };
     case 'progress':
@@ -44,6 +48,10 @@ export function navigate(path: string): void {
 
 export function studyPath(scanId: string): string {
   return `/study/${scanId}`;
+}
+
+export function mathPath(): string {
+  return '/mathematical-study';
 }
 
 export function scanPath(course = ''): string {

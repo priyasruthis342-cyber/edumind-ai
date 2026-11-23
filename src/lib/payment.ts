@@ -173,19 +173,26 @@ export interface RazorpaySuccessPayload {
  * Creates a real Live order on backend for ₹1.00 (100 paise)
  */
 export async function createRazorpayOrder(amountPaise = PASS_AMOUNT_PAISE): Promise<RazorpayOrderResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4500);
+
   try {
     const res = await fetch(`${BACKEND_URL}/api/payment/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount: amountPaise }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Order creation failed (${res.status})`);
     }
     return await res.json();
   } catch (err) {
-    console.error('Create order error:', err);
+    clearTimeout(timeoutId);
+    console.warn('Backend order creation notice:', err);
     throw err;
   }
 }
@@ -229,6 +236,7 @@ export async function startRazorpayCheckout({
   onError,
   onDismiss,
 }: StartRazorpayCheckoutOptions): Promise<void> {
+  // Preload Razorpay script if not already available
   const loaded = await loadRazorpayScript();
   if (!loaded) {
     const err = new Error('Razorpay SDK could not be loaded. Please check your internet connection.');
@@ -252,16 +260,21 @@ export async function startRazorpayCheckout({
     void e;
   }
 
-  const order = await createRazorpayOrder(amountRupees * 100);
+  let order: RazorpayOrderResponse | null = null;
+  try {
+    order = await createRazorpayOrder(amountRupees * 100);
+  } catch (err) {
+    console.warn('Backend order creation timed out or unavailable, using live direct key checkout:', err);
+  }
 
-  const options = {
-    key: order.key_id || RAZORPAY_LIVE_KEY_ID,
-    amount: order.amount || 100,
-    currency: order.currency || 'INR',
-    name: 'EduMind AI',
-    description: 'Daily Pass (₹1) • Valid until 12:00 AM Midnight',
-    image: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-    order_id: order.order_id,
+  const options: Record<string, unknown> = {
+    key: order?.key_id || RAZORPAY_LIVE_KEY_ID,
+    amount: order?.amount || (amountRupees * 100),
+    currency: order?.currency || 'INR',
+    name: 'EDU Mind AI',
+    description: 'EDU Mind Daily Pass (₹1.00) • Valid until 12:00 AM Midnight',
+    image: '/teacher-girl.jpg',
+    ...(order?.order_id ? { order_id: order.order_id } : {}),
     handler: async function (response: RazorpaySuccessPayload) {
       try {
         const verifyResult = await verifyRazorpayPayment(response);

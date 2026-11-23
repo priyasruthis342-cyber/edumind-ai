@@ -24,27 +24,29 @@ export function AuthScreen() {
       return;
     }
 
-    try {
-      const cleanName = name.trim();
-      if (!cleanName) {
-        setError('தயவுசெய்து உங்கள் பெயரை உள்ளிடவும்.');
-        setSubmitting(false);
-        return;
-      }
-
-      const savedUser = await saveUserToMongoDB(cleanName, cleanMobile);
-      const userData = {
-        name: savedUser.name,
-        mobile: savedUser.mobile,
-        display_name: savedUser.name
-      };
-      localStorage.setItem('edumind_user', JSON.stringify(userData));
-
-      window.location.href = '/';
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'உள்நுழைவதில் பிழை ஏற்பட்டது.');
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setError('தயவுசெய்து உங்கள் பெயரை உள்ளிடவும்.');
       setSubmitting(false);
+      return;
     }
+
+    const userData = {
+      name: cleanName,
+      mobile: cleanMobile,
+      display_name: cleanName
+    };
+    localStorage.setItem('edumind_is_logged_in', 'true');
+    localStorage.setItem('edumind_custom_user', JSON.stringify(userData));
+    localStorage.setItem('edumind_user', JSON.stringify(userData));
+
+    // Async background sync with MongoDB
+    void saveUserToMongoDB(cleanName, cleanMobile).catch((err) => {
+      console.warn('Background account sync note:', err);
+    });
+
+    window.location.hash = '#/courses';
+    window.location.href = '/';
   };
 
   return (

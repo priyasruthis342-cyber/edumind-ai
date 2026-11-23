@@ -11,6 +11,7 @@ import { ProgressPage } from '@/pages/ProgressPage';
 import { ScanPage } from '@/pages/ScanPage';
 import { StudyPage } from '@/pages/StudyPage';
 import { TheoryPage } from '@/pages/TheoryPage';
+import { MathStudyPage } from '@/pages/MathStudyPage';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { BookIllustration } from '@/components/BookIllustration';
 import { PaywallGate } from '@/components/PaywallGate';
@@ -45,25 +46,22 @@ function WelcomeAuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       return;
     }
 
-    try {
-      const savedUser = await saveUserToMongoDB(userData.name, userData.mobile);
-      const signedInUser = {
-        name: savedUser.name,
-        mobile: savedUser.mobile,
-        display_name: savedUser.name
-      };
-      localStorage.setItem('edumind_is_logged_in', 'true');
-      localStorage.setItem('edumind_custom_user', JSON.stringify(signedInUser));
-      localStorage.setItem('edumind_user', JSON.stringify(signedInUser));
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'கணக்கைச் சேமிக்க முடியவில்லை.');
-      setSubmitting(false);
-      return;
-    }
+    // Instant Optimistic Login: Zero delay, zero hanging spinners
+    const signedInUser = {
+      name: userData.name,
+      mobile: userData.mobile,
+      display_name: userData.name
+    };
+    localStorage.setItem('edumind_is_logged_in', 'true');
+    localStorage.setItem('edumind_custom_user', JSON.stringify(signedInUser));
+    localStorage.setItem('edumind_user', JSON.stringify(signedInUser));
 
-    // லாகின் செய்தவுடன் நேராக கோர்ஸ் பக்கத்திற்குச் செல்வது
+    // Async background sync with MongoDB
+    void saveUserToMongoDB(userData.name, userData.mobile).catch((err) => {
+      console.warn('Background account sync note:', err);
+    });
+
     window.location.hash = '#/courses';
-    
     onLoginSuccess();
   };
 
@@ -166,6 +164,12 @@ function renderRoute(route: Route) {
       return (
         <PaywallGate>
           <TheoryPage />
+        </PaywallGate>
+      );
+    case 'math':
+      return (
+        <PaywallGate>
+          <MathStudyPage />
         </PaywallGate>
       );
     case 'study':
