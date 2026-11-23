@@ -19,8 +19,12 @@ import type { LanguageCode, Profile, UserCourse } from '@/types';
 const LANGUAGE_STORAGE_KEY = 'edumind-language';
 
 function readStoredLanguage(): LanguageCode {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
-  return stored === 'ta' || stored === 'te' || stored === 'ml' || stored === 'kn' || stored === 'hi' ? stored : 'en';
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+    return stored === 'ta' || stored === 'te' || stored === 'ml' || stored === 'kn' || stored === 'hi' ? stored : 'en';
+  } catch {
+    return 'en';
+  }
 }
 
 export interface AppContextValue {
@@ -44,7 +48,7 @@ export const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [language, setLanguageState] = useState<LanguageCode>(readStoredLanguage);
   // Initialize with 24-hour persistent pass from localStorage
@@ -57,9 +61,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Listen to visibility & focus events (e.g. user returns from WhatsApp or another app)
   useEffect(() => {
     const checkPassPersistence = () => {
-      if (isPaymentPassActive()) {
-        setPaidToday(true);
-      }
+      try {
+        if (isPaymentPassActive()) {
+          setPaidToday(true);
+        }
+      } catch {}
     };
     checkPassPersistence();
 
@@ -76,17 +82,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       supabase.auth.getSession().then(({ data }) => {
         if (!active) return;
-        setSession(data?.session ?? null);
-        setSessionChecked(true);
+        if (data?.session) setSession(data.session);
       }).catch((err) => {
         console.warn('Supabase session initialization notice:', err?.message || err);
-        if (active) setSessionChecked(true);
       });
 
       const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
         if (!active) return;
         setSession(nextSession);
-        setSessionChecked(true);
       });
 
       return () => {
@@ -95,7 +98,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     } catch (e) {
       console.warn('Supabase auth listener notice:', e);
-      setSessionChecked(true);
     }
   }, []);
 

@@ -34,6 +34,12 @@ export function findVoice(speechTag: string): SpeechSynthesisVoice | null {
 
   if (candidates.length === 0) return null;
 
+  // Prioritize female high-fidelity voices (Pallavi, Jenny, Zira, Swara, Shruti, etc.)
+  const femaleVoice = candidates.find((v) =>
+    /female|pallavi|jenny|zira|swara|shruti|sobhana|sapna|samantha/i.test(v.name)
+  );
+  if (femaleVoice) return femaleVoice;
+
   // Prioritize modern Neural / Natural / Google high-fidelity voices
   const naturalVoice = candidates.find((v) =>
     /natural|neural|online|google|wavenet/i.test(v.name)

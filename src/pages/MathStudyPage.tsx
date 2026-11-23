@@ -55,7 +55,7 @@ const TEACHER_GREETINGS: Record<string, string> = {
 export function MathStudyPage() {
   const { language: globalLanguage, setLanguage, t } = useApp();
   const [selectedLanguage, setSelectedLanguage] = useState<string>(globalLanguage || 'en');
-  const [inputQuestion, setInputQuestion] = useState('Solve : x² + 5x + 6 = 0');
+  const [inputQuestion, setInputQuestion] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeLesson, setActiveLesson] = useState<MathTeacherLessonResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -209,6 +209,14 @@ export function MathStudyPage() {
   const speakTeacherText = useCallback(async (textToSpeak: string) => {
     if (!textToSpeak) return;
 
+    // Clean text to avoid speech stuttering on LaTeX or code tokens
+    const sanitizedSpeech = textToSpeak
+      .replace(/\\\(|\\\)|\\\[|\\\]|\$+/g, ' ')
+      .replace(/\\[a-zA-Z]+/g, ' ')
+      .replace(/[\{\}\^_\*\#\`\<\>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     setTeacherBubbleText(textToSpeak);
 
     // Stop existing audio
@@ -221,7 +229,7 @@ export function MathStudyPage() {
 
     try {
       setLoadingAudio(true);
-      const audioBlob = await fetchSynthesizedSpeech(textToSpeak, selectedLanguage, 'story');
+      const audioBlob = await fetchSynthesizedSpeech(sanitizedSpeech, selectedLanguage, 'story');
       const url = URL.createObjectURL(audioBlob);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(url);
@@ -245,11 +253,24 @@ export function MathStudyPage() {
       await audio.play();
       setIsPlayingAudio(true);
     } catch {
-      // Fallback: Web Speech API
+      // Fallback: Web Speech API with Female voice
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(textToSpeak);
+        const utter = new SpeechSynthesisUtterance(sanitizedSpeech);
         utter.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
+        const voices = window.speechSynthesis.getVoices();
+        const langPrefix = utter.lang.split('-')[0];
+        const femaleVoice = voices.find(v =>
+          v.lang.startsWith(langPrefix) && (
+            v.name.toLowerCase().includes('female') ||
+            v.name.toLowerCase().includes('pallavi') ||
+            v.name.toLowerCase().includes('zira') ||
+            v.name.toLowerCase().includes('jenny') ||
+            v.name.toLowerCase().includes('natural') ||
+            v.name.toLowerCase().includes('samantha')
+          )
+        ) || voices.find(v => v.lang.startsWith(langPrefix));
+        if (femaleVoice) utter.voice = femaleVoice;
         utter.rate = 0.95;
         utter.onend = () => setIsPlayingAudio(false);
         window.speechSynthesis.speak(utter);
@@ -909,36 +930,74 @@ export function MathStudyPage() {
             }}
           >
             {/* Top Blackboard Chalk Details */}
-            <div className="space-y-6">
-
-              {/* Chalkboard Topic Header in Bright Yellow Chalk */}
-              <div className="text-center border-b border-emerald-800/60 pb-4">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-serif tracking-wide drop-shadow-md">
-                  {activeLesson?.detected_topic || 'Quadratic Equations'}
-                </h2>
-                <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
-              </div>
-
-              {/* Problem Statement */}
-              <div className="text-base sm:text-lg font-mono text-emerald-100 flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">Solve :</span>
-                <span className="font-semibold">
-                  {activeLesson?.board_content?.question || inputQuestion || 'x² + 5x + 6 = 0'}
-                </span>
-              </div>
-
-              {/* Core Formula (If Available) */}
-              {activeLesson?.board_content?.core_formula && (
-                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
-                  <span className="text-amber-300 font-bold">Formula : </span>
-                  {activeLesson.board_content.core_formula}
+            {!activeLesson ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center min-h-[460px] space-y-6">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-950/80 border-2 border-dashed border-amber-400/60 flex items-center justify-center text-amber-300 text-3xl shadow-inner">
+                  📐
                 </div>
-              )}
+                
+                <div className="space-y-2 max-w-md">
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-amber-300 tracking-wide">
+                    {selectedLanguage === 'ta' ? 'கரும்பலகை தயார்' : 'Chalkboard Ready'}
+                  </h3>
+                  <p className="text-xs sm:text-sm font-sans text-emerald-100/90 leading-relaxed">
+                    {selectedLanguage === 'ta'
+                      ? 'படி 2-ல் உங்கள் கணிதப் பாடத்திட்டம் அல்லது வினாத்தாளை பதிவேற்றிவிட்டு "Analyze Now" பொத்தானை அழுத்தவும். உங்கள் AI ஆசிரியை இங்கு முழு கணக்கையும் படிப்படியாக எழுதி விளக்குவார்!'
+                      : 'Upload your Maths syllabus or question in Step 2 above and click "Analyze Now". Your AI Teacher will solve and write the step-by-step solution here!'}
+                  </p>
+                </div>
 
-              {/* Step-by-Step Chalk Working */}
-              <div className="space-y-4 pt-2">
-                {activeLesson?.board_content?.steps && activeLesson.board_content.steps.length > 0 ? (
-                  activeLesson.board_content.steps.map((step, idx) => {
+                {/* Chalk decorative guides */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg pt-2 text-left">
+                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                    <span className="text-amber-400 font-bold font-serif text-xs block">1. Language</span>
+                    <span className="text-[11px] text-slate-200">English, தமிழ் & more</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                    <span className="text-amber-400 font-bold font-serif text-xs block">2. Upload</span>
+                    <span className="text-[11px] text-slate-200">PDF, Photo or Presets</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                    <span className="text-amber-400 font-bold font-serif text-xs block">3. Step-by-Step</span>
+                    <span className="text-[11px] text-slate-200">Spoken voice + Board</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center gap-2 text-xs font-mono text-amber-300/80">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Ready for your math syllabus</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+
+                {/* Chalkboard Topic Header in Bright Yellow Chalk */}
+                <div className="text-center border-b border-emerald-800/60 pb-4">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-serif tracking-wide drop-shadow-md">
+                    {activeLesson.detected_topic || 'Mathematics Lesson'}
+                  </h2>
+                  <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
+                </div>
+
+                {/* Problem Statement */}
+                <div className="text-base sm:text-lg font-mono text-emerald-100 flex items-start gap-2">
+                  <span className="text-amber-400 font-bold shrink-0">Solve :</span>
+                  <span className="font-semibold">
+                    {activeLesson.board_content?.question || inputQuestion}
+                  </span>
+                </div>
+
+                {/* Core Formula (If Available) */}
+                {activeLesson.board_content?.core_formula && (
+                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                    <span className="text-amber-300 font-bold">Formula : </span>
+                    {activeLesson.board_content.core_formula}
+                  </div>
+                )}
+
+                {/* Step-by-Step Chalk Working */}
+                <div className="space-y-4 pt-2">
+                  {activeLesson.board_content?.steps?.map((step, idx) => {
                     const isActive = isTeachingStarted && currentStepIndex === idx;
                     return (
                       <div
@@ -972,64 +1031,50 @@ export function MathStudyPage() {
                         </div>
                       </div>
                     );
-                  })
-                ) : (
-                  // Default sample steps matching mockup
-                  <div className="space-y-4 font-mono text-xs sm:text-sm">
-                    <div className="flex items-start gap-2">
-                      <span className="font-bold text-amber-300 shrink-0 underline">Step 1 :</span>
-                      <span>Find two numbers whose sum is 5 and product is 6. ➔ 2 and 3</span>
+                  })}
+                </div>
+
+                {/* Framed Final Answer Box (Chalk Box) */}
+                {activeLesson.board_content?.final_answer && (
+                  <div className="mt-6 flex justify-end">
+                    <div className="inline-block p-4 rounded-2xl border-2 border-amber-400 bg-emerald-950/80 shadow-lg text-center min-w-[220px]">
+                      <p className="text-xs font-serif font-bold text-amber-300 tracking-wider">
+                        🎯 FINAL ANSWER:
+                      </p>
+                      <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
+                        {activeLesson.board_content.final_answer}
+                      </p>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="font-bold text-amber-300 shrink-0 underline">Step 2 :</span>
-                      <span>Factorize the equation: (x + 2)(x + 3) = 0</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="font-bold text-amber-300 shrink-0 underline">Step 3 :</span>
-                      <span>x + 2 = 0 or x + 3 = 0 ➔ x = -2, x = -3</span>
+                  </div>
+                )}
+
+                {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
+                {!isTeachingStarted && (
+                  <div className="mt-4 p-4 rounded-2xl bg-amber-950/70 border border-amber-500/80 text-center space-y-3 animate-bounce-slow">
+                    <p className="text-sm sm:text-base font-bold text-amber-200">
+                      ✨ {activeLesson.ready_prompt || 'பாடத்தை ஆரம்பிக்கலாமா? (Shall we start?)'}
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleStartTeaching}
+                        className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-transform"
+                      >
+                        🚀 Yes, Start Lesson! (ஆரம்பிக்கலாம்)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startVoiceListening()}
+                        className="py-2.5 px-4 rounded-xl bg-emerald-900 border border-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Mic className="h-3.5 w-3.5" />
+                        <span>Say &ldquo;Yes&rdquo;</span>
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Framed Final Answer Box (Chalk Box) */}
-              <div className="mt-6 flex justify-end">
-                <div className="inline-block p-4 rounded-2xl border-2 border-amber-400 bg-emerald-950/80 shadow-lg text-center min-w-[220px]">
-                  <p className="text-xs font-serif font-bold text-amber-300 tracking-wider">
-                    🎯 FINAL ANSWER:
-                  </p>
-                  <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
-                    {activeLesson?.board_content?.final_answer || 'x = -2,  x = -3'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
-              {!isTeachingStarted && activeLesson && (
-                <div className="mt-4 p-4 rounded-2xl bg-amber-950/70 border border-amber-500/80 text-center space-y-3 animate-bounce-slow">
-                  <p className="text-sm sm:text-base font-bold text-amber-200">
-                    ✨ {activeLesson.ready_prompt || 'பாடத்தை ஆரம்பிக்கலாமா? (Shall we start?)'}
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleStartTeaching}
-                      className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-transform"
-                    >
-                      🚀 Yes, Start Lesson! (ஆரம்பிக்கலாம்)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startVoiceListening()}
-                      className="py-2.5 px-4 rounded-xl bg-emerald-900 border border-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Mic className="h-3.5 w-3.5" />
-                      <span>Say &ldquo;Yes&rdquo;</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Bottom Chalkboard Audio Controller Bar — Exact Match to Image */}
             <div className="mt-8 pt-4 border-t border-emerald-800/60 flex items-center justify-between gap-3 text-xs">

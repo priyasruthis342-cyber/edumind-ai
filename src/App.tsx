@@ -189,21 +189,27 @@ function renderRoute(route: Route) {
   }
 }
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 function AppBody() {
   const { sessionChecked, accessError, t } = useApp();
   const route = useRoute();
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return typeof window !== 'undefined' && localStorage.getItem('edumind_is_logged_in') === 'true';
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('edumind_is_logged_in') === 'true';
+    } catch {
+      return false;
+    }
   });
 
-  if (!sessionChecked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-paper">
-        <Spinner label={t('loading')} />
-      </div>
-    );
-  }
+  // Pre-warm Render backend on initial app load to eliminate cold-start delays
+  useEffect(() => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://edumind-backend-ropy.onrender.com';
+      void fetch(`${backendUrl}/api/health`, { method: 'GET', keepalive: true }).catch(() => {});
+    } catch {}
+  }, []);
 
   if (!isLoggedIn) {
     return <WelcomeAuthScreen onLoginSuccess={() => setIsLoggedIn(true)} />;
@@ -223,9 +229,11 @@ function AppBody() {
 
 function App() {
   return (
-    <AppProvider>
-      <AppBody />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <AppBody />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 
