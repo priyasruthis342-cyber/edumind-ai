@@ -723,8 +723,8 @@ export function MathStudyPage() {
       {error && (
         <ErrorNotice
           message={error}
-          actionLabel="Try Solving Again"
-          onAction={() => handleAnalyzeSyllabus()}
+          retryLabel="Try Solving Again"
+          onRetry={() => void handleAnalyzeSyllabus()}
         />
       )}
 

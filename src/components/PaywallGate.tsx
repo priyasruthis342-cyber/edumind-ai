@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   CheckCircle2, Crown, Loader2, Lock, ScanLine, Music,
   ClipboardCheck, X, CreditCard, ShieldCheck, Sparkles, Zap
@@ -8,6 +8,7 @@ import {
   PASS_AMOUNT_RUPEES,
   startRazorpayCheckout,
   isPaymentPassActive,
+  loadRazorpayScript,
 } from '@/lib/payment';
 import { BookIllustration } from '@/components/BookIllustration';
 import { ErrorNotice } from '@/components/ui';

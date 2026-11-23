@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { BookOpen, Loader2, Sparkles, Trophy, Zap } from 'lucide-react';
 import { AppProvider } from '@/context/AppContext';
 import { useApp } from '@/context/useApp';
 import { useRoute } from '@/lib/router';
 import type { Route } from '@/lib/router';
 import { AppShell } from '@/components/AppShell';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ErrorNotice, Spinner } from '@/components/ui';
 import { HomePage } from '@/pages/HomePage';
 import { ProgressPage } from '@/pages/ProgressPage';
@@ -188,8 +189,6 @@ function renderRoute(route: Route) {
       return <HomePage />;
   }
 }
-
-import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function AppBody() {
   const { sessionChecked, accessError, t } = useApp();

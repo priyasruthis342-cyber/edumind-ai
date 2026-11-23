@@ -705,11 +705,11 @@ export function TheoryPage() {
                 </button>
                 <button
                   onClick={() => handleDownloadAudio('Text-to-Speech')}
-                  disabled={downloadingMode === 'Text-to-Speech'}
+                  disabled={downloadingMode === 'tutor'}
                   className="rounded-xl bg-white border border-teal-300 p-3 text-teal-800 hover:bg-teal-100 shadow-sm ml-auto cursor-pointer disabled:opacity-60 flex items-center justify-center min-w-[44px] min-h-[44px]"
                   title="Download Speech Audio MP3"
                 >
-                  {downloadingMode === 'Text-to-Speech' ? (
+                  {downloadingMode === 'tutor' ? (
                     <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
                   ) : (
                     <Download className="h-5 w-5" />
@@ -754,11 +754,11 @@ export function TheoryPage() {
                 </button>
                 <button
                   onClick={() => handleDownloadAudio('Story')}
-                  disabled={downloadingMode === 'Story'}
+                  disabled={downloadingMode === 'story'}
                   className="rounded-xl bg-white border border-purple-300 p-3 text-purple-800 hover:bg-purple-100 shadow-sm ml-auto cursor-pointer disabled:opacity-60 flex items-center justify-center min-w-[44px] min-h-[44px]"
                   title="Download Story Audio MP3"
                 >
-                  {downloadingMode === 'Story' ? (
+                  {downloadingMode === 'story' ? (
                     <Loader2 className="h-5 w-5 animate-spin text-purple-700" />
                   ) : (
                     <Download className="h-5 w-5" />

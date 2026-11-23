@@ -1277,43 +1277,43 @@ export function StudyPage({ id }: StudyPageProps) {
                                 </div>
                               ) : (
                                 <div className="space-y-3.5 text-xs sm:text-sm">
-                                  {q.answer?.introduction && (
+                                  {(q.answer as any)?.introduction && (
                                     <div className="rounded-xl bg-teal-50/70 border border-teal-200 p-3.5 space-y-1">
                                       <p className="font-bold text-teal-900 text-xs flex items-center gap-1.5 uppercase">
                                         <FileText className="h-3.5 w-3.5 text-teal-700" />
                                         1. Introduction &amp; Definition:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.introduction}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).introduction}</p>
                                     </div>
                                   )}
-                                  {q.answer?.architecture_types && (
+                                  {(q.answer as any)?.architecture_types && (
                                     <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3.5 space-y-1">
                                       <p className="font-bold text-indigo-900 text-xs flex items-center gap-1.5 uppercase">
                                         <Layers className="h-3.5 w-3.5 text-indigo-700" />
                                         2. Architecture &amp; Key Types:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.architecture_types}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).architecture_types}</p>
                                     </div>
                                   )}
-                                  {q.answer?.operations && (
+                                  {(q.answer as any)?.operations && (
                                     <div className="rounded-xl bg-cyan-50/70 border border-cyan-200 p-3.5 space-y-1">
                                       <p className="font-bold text-cyan-900 text-xs flex items-center gap-1.5 uppercase">
                                         <Terminal className="h-3.5 w-3.5 text-cyan-700" />
                                         Core Operations &amp; Algorithmic Mechanics:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.operations}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).operations}</p>
                                     </div>
                                   )}
-                                  {q.answer?.concrete_example && (
+                                  {(q.answer as any)?.concrete_example && (
                                     <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3.5 space-y-1">
                                       <p className="font-bold text-amber-900 text-xs flex items-center gap-1.5 uppercase">
                                         <BookOpen className="h-3.5 w-3.5 text-amber-700" />
                                         3. Real-World Relevance &amp; Example:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.concrete_example}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).concrete_example}</p>
                                     </div>
                                   )}
-                                  {q.answer?.program_code && q.answer.program_code.trim().length > 5 && (
+                                  {(q.answer as any)?.program_code && (q.answer as any).program_code.trim().length > 5 && (
                                     <div className="rounded-xl bg-stone-900 p-3.5 text-emerald-300 font-mono text-xs overflow-x-auto space-y-1 shadow-inner">
                                       <div className="flex items-center justify-between text-stone-400 pb-1 border-b border-stone-800">
                                         <span className="text-[11px] font-bold text-teal-400 uppercase flex items-center gap-1.5">
@@ -1321,34 +1321,34 @@ export function StudyPage({ id }: StudyPageProps) {
                                           4. Program Implementation
                                         </span>
                                       </div>
-                                      <pre className="whitespace-pre leading-relaxed">{q.answer.program_code}</pre>
+                                      <pre className="whitespace-pre leading-relaxed">{(q.answer as any).program_code}</pre>
                                     </div>
                                   )}
-                                  {q.answer?.program_output && q.answer.program_output.trim().length > 2 && (
+                                  {(q.answer as any)?.program_output && (q.answer as any).program_output.trim().length > 2 && (
                                     <div className="rounded-xl bg-stone-950 p-3.5 text-stone-300 font-mono text-xs overflow-x-auto border border-stone-800 space-y-1">
                                       <span className="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
                                         <Terminal className="h-3.5 w-3.5" />
                                         5. Exact Terminal Output
                                       </span>
-                                      <pre className="text-stone-200 whitespace-pre leading-relaxed">{q.answer.program_output}</pre>
+                                      <pre className="text-stone-200 whitespace-pre leading-relaxed">{(q.answer as any).program_output}</pre>
                                     </div>
                                   )}
-                                  {q.answer?.numerical_problem && (
+                                  {(q.answer as any)?.numerical_problem && (
                                     <div className="rounded-xl bg-purple-50/70 border border-purple-200 p-3.5 space-y-1">
                                       <p className="font-bold text-purple-900 text-xs flex items-center gap-1.5 uppercase">
                                         <Calculator className="h-3.5 w-3.5 text-purple-700" />
                                         6. Numerical / Worked-Out Problem &amp; Solution:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.numerical_problem}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).numerical_problem}</p>
                                     </div>
                                   )}
-                                  {q.answer?.tradeoffs_complexity && (
+                                  {(q.answer as any)?.tradeoffs_complexity && (
                                     <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3.5 space-y-1">
                                       <p className="font-bold text-rose-900 text-xs flex items-center gap-1.5 uppercase">
                                         <Award className="h-3.5 w-3.5 text-rose-700" />
                                         7. Advantages, Disadvantages &amp; Complexity:
                                       </p>
-                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.tradeoffs_complexity}</p>
+                                      <p className="text-stone-800 whitespace-pre-line leading-relaxed">{(q.answer as any).tradeoffs_complexity}</p>
                                     </div>
                                   )}
                                 </div>
