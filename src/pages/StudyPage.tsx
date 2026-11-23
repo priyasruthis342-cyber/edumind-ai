@@ -374,8 +374,8 @@ function render8MarkAnswer(
           </div>
         )}
 
-        {/* 4. Program Implementation Code */}
-        {ans.program_code && (
+        {/* 4. Program Implementation Code (Only for Programming Subjects) */}
+        {ans.program_code && ans.program_code.trim().length > 5 && (
           <div className="rounded-2xl bg-stone-900 border border-stone-800 p-4 text-emerald-300 font-mono text-xs overflow-x-auto shadow-inner space-y-2">
             <div className="flex items-center justify-between pb-2 border-b border-stone-800 text-stone-400">
               <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -397,8 +397,8 @@ function render8MarkAnswer(
           </div>
         )}
 
-        {/* 5. Terminal Execution Output */}
-        {ans.program_output && (
+        {/* 5. Terminal Execution Output (Only for Programming Subjects) */}
+        {ans.program_output && ans.program_output.trim().length > 2 && (
           <div className="rounded-2xl bg-stone-950 border border-stone-800 p-4 text-stone-300 font-mono text-xs overflow-x-auto space-y-2">
             <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
               <Terminal className="h-4 w-4" />
@@ -1313,7 +1313,7 @@ export function StudyPage({ id }: StudyPageProps) {
                                       <p className="text-stone-800 whitespace-pre-line leading-relaxed">{q.answer.concrete_example}</p>
                                     </div>
                                   )}
-                                  {q.answer?.program_code && (
+                                  {q.answer?.program_code && q.answer.program_code.trim().length > 5 && (
                                     <div className="rounded-xl bg-stone-900 p-3.5 text-emerald-300 font-mono text-xs overflow-x-auto space-y-1 shadow-inner">
                                       <div className="flex items-center justify-between text-stone-400 pb-1 border-b border-stone-800">
                                         <span className="text-[11px] font-bold text-teal-400 uppercase flex items-center gap-1.5">
@@ -1324,7 +1324,7 @@ export function StudyPage({ id }: StudyPageProps) {
                                       <pre className="whitespace-pre leading-relaxed">{q.answer.program_code}</pre>
                                     </div>
                                   )}
-                                  {q.answer?.program_output && (
+                                  {q.answer?.program_output && q.answer.program_output.trim().length > 2 && (
                                     <div className="rounded-xl bg-stone-950 p-3.5 text-stone-300 font-mono text-xs overflow-x-auto border border-stone-800 space-y-1">
                                       <span className="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
                                         <Terminal className="h-3.5 w-3.5" />
@@ -1643,7 +1643,7 @@ export function StudyPage({ id }: StudyPageProps) {
                                 )}
 
                                 {/* 4. Full Clean Programming Code */}
-                                {q.answer?.program_code && (
+                                {q.answer?.program_code && q.answer.program_code.trim().length > 5 && (
                                   <div className="rounded-2xl bg-stone-900 border border-stone-800 p-4 space-y-2 shadow-inner">
                                     <div className="flex items-center justify-between text-stone-400">
                                       <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -1666,7 +1666,7 @@ export function StudyPage({ id }: StudyPageProps) {
                                 )}
 
                                 {/* 5. Exact Program Output */}
-                                {q.answer?.program_output && (
+                                {q.answer?.program_output && q.answer.program_output.trim().length > 2 && (
                                   <div className="rounded-2xl bg-stone-950 border border-stone-800 p-4 space-y-2 shadow-inner">
                                     <p className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
                                       <Terminal className="h-4 w-4 text-emerald-400" />

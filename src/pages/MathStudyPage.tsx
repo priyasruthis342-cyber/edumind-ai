@@ -3,41 +3,43 @@ import {
   Calculator, Sparkles, Volume2, VolumeX, Play, Pause, RotateCcw,
   ArrowRight, ArrowLeft, CheckCircle2, Award, Camera, ImagePlus,
   FileUp, Loader2, Send, HelpCircle, BookOpen, GraduationCap, Lightbulb,
-  Maximize2
+  Maximize2, Minimize2, Mic, MicOff, Download, ChevronDown, Check,
+  Radio, FileText, Image as ImageIcon, Sparkle
 } from 'lucide-react';
 import { useApp } from '@/context/useApp';
-import { LanguageSelect } from '@/components/LanguageSelect';
 import {
   fetchMathTeacherLesson,
+  askMathTeacherDoubt,
   fetchSynthesizedSpeech,
   extractImageWithGemini,
   type MathTeacherLessonResponse,
+  type MathTeacherDoubtResponse,
   type MathStep
 } from '@/lib/geminiApi';
+import { extractTextFromFile } from '@/lib/extractText';
 import { cleanMathFormatting } from '@/lib/mathFormatter';
 import { ErrorNotice } from '@/components/ui';
 
 // Quick preset high-yield math problems for instant 1-click learning
 const PRESET_MATH_QUESTIONS: Record<string, { label: string; question: string }[]> = {
   ta: [
-    { label: 'இருபடிச் சமன்பாடு', question: 'Solve the quadratic equation: 2x² + 5x - 3 = 0' },
-    { label: 'பித்தாகரஸ் தேற்றம்', question: 'In a right-angled triangle, hypotenuse c = 13 cm and one side a = 5 cm. Find the other side b.' },
-    { label: 'அணிகள் (Matrices)', question: 'Find the determinant and inverse of matrix A = [[2, 4], [1, 3]].' },
-    { label: 'வகையீடு (Calculus)', question: 'Find the derivative dy/dx for y = 3x⁴ - 5x² + 7x - 9 at x = 2.' },
-    { label: 'நிகழ்தகவு (Probability)', question: 'Two unbiased dice are rolled. Find the probability of getting a sum greater than 8.' }
-  ],
-  hi: [
-    { label: 'द्विघात समीकरण', question: 'हल करें: 2x² + 5x - 3 = 0' },
-    { label: 'पाइथागोरस प्रमेय', question: 'समकोण त्रिभुज में कर्ण c = 13 cm और एक भुजा a = 5 cm है। दूसरी भुजा b ज्ञात कीजिए।' },
-    { label: 'मैट्रिक्स (आव्यूह)', question: 'आव्यूह A = [[2, 4], [1, 3]] का सारणिक (determinant) ज्ञात करें।' },
-    { label: 'अवकलन (Calculus)', question: 'y = 3x⁴ - 5x² + 7 का अवकलन dy/dx निकालें।' }
+    { label: 'இருபடிச் சமன்பாடு (Quadratic Equation)', question: 'Solve the quadratic equation: x² + 5x + 6 = 0 by factorization.' },
+    { label: 'நிகழ்தகவு (Dice Sum ≥ 9)', question: 'Two fair dice are thrown. What is the probability that the sum of the scores is at least 9?' },
+    { label: 'வகையீடு (Calculus Derivative)', question: 'Find the derivative dy/dx for y = 3x⁴ - 5x² + 7x - 9 at x = 2.' },
+    { label: 'பித்தாகரஸ் தேற்றம் (Pythagoras)', question: 'In a right-angled triangle, hypotenuse c = 13 cm and side a = 5 cm. Find side b.' },
+    { label: 'அணிகள் (Matrix Determinant)', question: 'Find the determinant and inverse of matrix A = [[2, 4], [1, 3]].' }
   ],
   en: [
-    { label: 'Quadratic Equation', question: 'Solve: 2x² + 5x - 3 = 0 using quadratic formula.' },
-    { label: 'Pythagoras Theorem', question: 'In a right triangle, hypotenuse c = 13 cm and side a = 5 cm. Calculate side b.' },
-    { label: 'Matrix Determinant', question: 'Find determinant and inverse of 2x2 matrix A = [[2, 4], [1, 3]].' },
-    { label: 'Calculus Derivative', question: 'Evaluate derivative dy/dx of y = 3x⁴ - 5x² + 7x - 9 at x = 2.' },
-    { label: 'Probability Sum', question: 'Two fair dice are thrown. What is the probability that the sum of the scores is at least 9?' }
+    { label: 'Quadratic Equation (x² + 5x + 6 = 0)', question: 'Solve: x² + 5x + 6 = 0 by factorization.' },
+    { label: 'Probability Sum (Two Fair Dice)', question: 'Two fair dice are thrown. What is the probability that the sum of the scores is at least 9?' },
+    { label: 'Calculus Derivative (dy/dx at x = 2)', question: 'Evaluate derivative dy/dx of y = 3x⁴ - 5x² + 7x - 9 at x = 2.' },
+    { label: 'Pythagoras Theorem (Hypotenuse = 13)', question: 'In a right triangle, hypotenuse c = 13 cm and side a = 5 cm. Calculate side b.' },
+    { label: 'Matrix Determinant (2x2 Matrix)', question: 'Find determinant and inverse of 2x2 matrix A = [[2, 4], [1, 3]].' }
+  ],
+  hi: [
+    { label: 'द्विघात समीकरण', question: 'हल करें: x² + 5x + 6 = 0 गुणनखण्ड विधि द्वारा।' },
+    { label: 'प्रायिकता (दो पासे)', question: 'दो निष्पक्ष पासे फेंके जाते हैं। अंकों का योग कम से कम 9 होने की प्रायिकता क्या है?' },
+    { label: 'अवकलन (Calculus)', question: 'y = 3x⁴ - 5x² + 7x - 9 का अवकलन dy/dx निकालें जब x = 2 हो।' }
   ]
 };
 
@@ -47,37 +49,69 @@ const TEACHER_GREETINGS: Record<string, string> = {
   te: 'నమస్కారం! నేను మీ గణిత ఉపాధ్యాయురాలిని. గణితాన్ని చాలా సులభంగా మరియు సరదాగా నేర్చుకుందాం!',
   ml: 'നമസ്കാരം! ഞാൻ നിങ്ങളുടെ ഗണിത അധ്യാപികയാണ്. നമുക്ക് കണക്ക് വളരെ ലളിതമായി മനസ്സിലാക്കാം!',
   kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಗಣಿತ ಶಿಕ್ಷಕಿ. ಬನ್ನಿ, ಗಣಿತವನ್ನು ಸುಲಭವಾಗಿ ಮತ್ತು ಸಂತೋಷದಿಂದ ಕಲಿಯೋಣ!',
-  en: 'Hello! I am your AI Math Teacher. Let us make mathematics simple, fun, and easy to score 100% in exams!'
+  en: "Hello! I'll teach you Math today. Let's start with your syllabus..."
 };
 
 export function MathStudyPage() {
-  const { language, t } = useApp();
-  const [inputQuestion, setInputQuestion] = useState('');
+  const { language: globalLanguage, setLanguage, t } = useApp();
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(globalLanguage || 'en');
+  const [inputQuestion, setInputQuestion] = useState('Solve : x² + 5x + 6 = 0');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeLesson, setActiveLesson] = useState<MathTeacherLessonResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Lesson teaching state: false = preview on blackboard & ready prompt, true = walkthrough started
+  // Lesson teaching state
   const [isTeachingStarted, setIsTeachingStarted] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Audio voice state
+  // Dynamic Teacher Speech Bubble Message
+  const [teacherBubbleText, setTeacherBubbleText] = useState(
+    TEACHER_GREETINGS[selectedLanguage] || TEACHER_GREETINGS.en
+  );
+
+  // Voice Audio Playback state
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(45);
+  const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Interactive Live Microphone Voice (Two-Way Conversation)
+  const [isListening, setIsListening] = useState(false);
+  const [speechTranscript, setSpeechTranscript] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  // Doubt solving state
+  const [userDoubtInput, setUserDoubtInput] = useState('');
+  const [activeDoubt, setActiveDoubt] = useState<MathTeacherDoubtResponse | null>(null);
+  const [askingDoubt, setAskingDoubt] = useState(false);
+
   // File upload refs
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Fallback greeting based on language
-  const currentGreeting = activeLesson?.greeting || TEACHER_GREETINGS[language] || TEACHER_GREETINGS.en;
-  const presets = PRESET_MATH_QUESTIONS[language] || PRESET_MATH_QUESTIONS.en;
+  // Fullscreen chalkboard state
+  const chalkboardRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Cleanup audio object URLs
+  // Presets
+  const presets = PRESET_MATH_QUESTIONS[selectedLanguage] || PRESET_MATH_QUESTIONS.en;
+
+  // Sync with global language changes
+  useEffect(() => {
+    if (globalLanguage) {
+      setSelectedLanguage(globalLanguage);
+      setTeacherBubbleText(TEACHER_GREETINGS[globalLanguage] || TEACHER_GREETINGS.en);
+    }
+  }, [globalLanguage]);
+
+  // Cleanup audio URLs
   useEffect(() => {
     return () => {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
@@ -85,47 +119,138 @@ export function MathStudyPage() {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+      }
     };
   }, [audioUrl]);
 
-  // Handle Voice Audio Playback
-  const handleToggleVoice = async () => {
-    if (!activeLesson) return;
+  // Audio timer progression
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isPlayingAudio) {
+      interval = setInterval(() => {
+        if (audioRef.current) {
+          setAudioCurrentTime(Math.floor(audioRef.current.currentTime));
+          if (audioRef.current.duration) {
+            setAudioDuration(Math.floor(audioRef.current.duration));
+          }
+        } else {
+          setAudioCurrentTime((prev) => (prev >= audioDuration ? 0 : prev + 1));
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlayingAudio, audioDuration]);
 
-    if (isPlayingAudio && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
+  // Initialize Speech Recognition for Live Two-Way Voice
+  const startVoiceListening = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice microphone recognition is supported in Chrome, Edge, and Android browsers. You can also type your doubt below.');
       return;
     }
 
-    if (audioUrl && audioRef.current) {
-      void audioRef.current.play();
-      setIsPlayingAudio(true);
-      return;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
     }
 
-    // Synthesize teacher voice
-    setLoadingAudio(true);
     try {
-      const speechText = activeLesson.spoken_audio_script || activeLesson.teacher_dialogue || activeLesson.greeting;
-      const audioBlob = await fetchSynthesizedSpeech(speechText, language, 'story');
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setSpeechTranscript('');
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        const current = event.resultIndex;
+        const transcriptText = event.results[current][0].transcript;
+        setSpeechTranscript(transcriptText);
+
+        // If the user says "start" or "yes" or "ஆரம்பிக்கலாம்" during ready prompt
+        const clean = transcriptText.toLowerCase();
+        if (!isTeachingStarted && (clean.includes('start') || clean.includes('yes') || clean.includes('சரி') || clean.includes('ஆரம்பிக்கலாம்') || clean.includes('shuru'))) {
+          handleStartTeaching();
+        }
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.warn('Speech recognition init note:', e);
+      setIsListening(false);
+    }
+  }, [selectedLanguage, isTeachingStarted]);
+
+  const stopVoiceListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    setIsListening(false);
+  }, []);
+
+  // Speak teacher dialogue using Web Speech API or synthesized audio
+  const speakTeacherText = useCallback(async (textToSpeak: string) => {
+    if (!textToSpeak) return;
+
+    setTeacherBubbleText(textToSpeak);
+
+    // Stop existing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    try {
+      setLoadingAudio(true);
+      const audioBlob = await fetchSynthesizedSpeech(textToSpeak, selectedLanguage, 'story');
       const url = URL.createObjectURL(audioBlob);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(url);
 
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setIsPlayingAudio(false);
+      audio.muted = isMuted;
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        // When teacher finishes speaking, prompt for doubts
+        if (isTeachingStarted) {
+          setTeacherBubbleText(
+            selectedLanguage === 'ta'
+              ? 'ஏதாவது சந்தேகம் இருக்கா? கேளுங்க. நான் ஈஸியா சொல்லித்தரேன்!'
+              : 'Do you have any doubts? Ask me if you do, and we will solve it together!'
+          );
+        }
+      };
       audio.onerror = () => setIsPlayingAudio(false);
 
       await audio.play();
       setIsPlayingAudio(true);
-    } catch (err) {
-      console.warn('Speech synthesis playback note:', err);
-      // Browser Web Speech API Fallback
+    } catch {
+      // Fallback: Web Speech API
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(activeLesson.spoken_audio_script || activeLesson.teacher_dialogue);
-        utter.lang = language === 'ta' ? 'ta-IN' : language === 'hi' ? 'hi-IN' : 'en-US';
+        const utter = new SpeechSynthesisUtterance(textToSpeak);
+        utter.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
+        utter.rate = 0.95;
         utter.onend = () => setIsPlayingAudio(false);
         window.speechSynthesis.speak(utter);
         setIsPlayingAudio(true);
@@ -133,13 +258,13 @@ export function MathStudyPage() {
     } finally {
       setLoadingAudio(false);
     }
-  };
+  }, [selectedLanguage, audioUrl, isMuted, isTeachingStarted]);
 
-  // Process math question with Gemini AI Teacher
-  const handleSolveMath = async (textToSolve?: string, base64Image?: string) => {
-    const questionText = textToSolve || inputQuestion.trim();
-    if (!questionText && !base64Image) {
-      setError('Please type a math problem or take a photo of your math question.');
+  // Main Solve / Analyze Handler
+  const handleAnalyzeSyllabus = async (overrideText?: string, base64Override?: string) => {
+    const questionText = overrideText || inputQuestion.trim();
+    if (!questionText && !base64Override && !selectedFile) {
+      setError('Please upload a Maths syllabus/question PDF or photo, or type a math problem.');
       return;
     }
 
@@ -147,24 +272,71 @@ export function MathStudyPage() {
     setError(null);
     setIsTeachingStarted(false);
     setCurrentStepIndex(0);
+    setActiveDoubt(null);
 
-    // Stop existing audio
+    // Stop playing audio
     if (audioRef.current) {
       audioRef.current.pause();
       setIsPlayingAudio(false);
     }
-    setAudioUrl(null);
 
     try {
-      const lesson = await fetchMathTeacherLesson(questionText, language, base64Image);
+      let textToSend = questionText;
+      let base64ImageToSend = base64Override;
+
+      // If a file was selected but not extracted yet
+      if (selectedFile && !base64Override) {
+        setUploadStatus('Reading and analyzing mathematics syllabus...');
+        if (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')) {
+          const res = await extractTextFromFile(selectedFile, (s) => setUploadStatus(s));
+          if (res.text && res.text.trim()) {
+            textToSend = res.text.trim();
+          }
+        } else if (selectedFile.type.startsWith('image/')) {
+          try {
+            const extracted = await extractImageWithGemini(selectedFile);
+            if (extracted && extracted.trim()) {
+              textToSend = extracted.trim();
+            }
+          } catch {
+            // Read base64
+            const reader = new FileReader();
+            base64ImageToSend = await new Promise<string>((res) => {
+              reader.onload = () => res(reader.result as string);
+              reader.readAsDataURL(selectedFile);
+            });
+          }
+        }
+      }
+
+      setUploadStatus('AI Math Teacher solving problem on blackboard...');
+      const lesson = await fetchMathTeacherLesson(
+        textToSend || 'Solve: x² + 5x + 6 = 0',
+        selectedLanguage,
+        base64ImageToSend
+      );
+
       setActiveLesson(lesson);
-      // Automatically scroll down to the chalkboard on mobile
+
+      // AI Teacher greeting and ready pause gate
+      const readyGreeting = lesson.ready_prompt || lesson.greeting ||
+        (selectedLanguage === 'ta'
+          ? 'வணக்கம்! நான் உங்கள் கணித ஆசிரியை. கரும்பலகையில கேள்வியும் ஃபார்முலாவும் எழுதியாச்சு. பாடத்தை ஆரம்பிக்கலாமா?'
+          : 'Hello! I have written the question, formula, and steps on the chalkboard! Shall we start?');
+
+      setTeacherBubbleText(readyGreeting);
+
+      // Auto-speak the greeting
+      void speakTeacherText(readyGreeting);
+
+      // Smooth scroll to blackboard
       setTimeout(() => {
-        const boardEl = document.getElementById('math-chalkboard');
+        const boardEl = document.getElementById('chalkboard-arena');
         if (boardEl) boardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 150);
+
     } catch (err) {
-      console.error('Math solving error:', err);
+      console.error('Math analysis failed:', err);
       setError(err instanceof Error ? err.message : 'Could not process math question. Please check your connection.');
     } finally {
       setLoading(false);
@@ -172,466 +344,788 @@ export function MathStudyPage() {
     }
   };
 
-  // Image File Upload & Vision OCR
-  const handleImageFile = async (file: File) => {
-    setLoading(true);
-    setUploadStatus('Scanning math handwriting and equations with Gemini Vision...');
-    setError(null);
+  // Start Teaching Walkthrough (Confirmation Gate)
+  const handleStartTeaching = () => {
+    setIsTeachingStarted(true);
+    setCurrentStepIndex(0);
 
+    const steps = activeLesson?.board_content?.steps || [];
+    const firstStep = steps[0];
+
+    const introSpeech = firstStep
+      ? `${firstStep.title}. ${firstStep.work}. ${firstStep.marking_tip}`
+      : (activeLesson?.teacher_dialogue || 'Let us begin our math lesson!');
+
+    void speakTeacherText(introSpeech);
+  };
+
+  // Step Navigation
+  const handleGoToStep = (index: number) => {
+    const steps = activeLesson?.board_content?.steps || [];
+    if (index < 0 || index >= steps.length) return;
+
+    setCurrentStepIndex(index);
+    const target = steps[index];
+    const stepSpeech = `${target.title}. ${target.work}. ${target.marking_tip}`;
+    void speakTeacherText(stepSpeech);
+  };
+
+  // Two-Way Interactive Doubt Solving Handler
+  const handleAskDoubt = async (customDoubt?: string) => {
+    const doubtToSolve = customDoubt || speechTranscript || userDoubtInput.trim();
+    if (!doubtToSolve) return;
+
+    setAskingDoubt(true);
     try {
-      const extractedMath = await extractImageWithGemini(file);
-      const cleanMath = cleanMathFormatting(extractedMath);
-      setInputQuestion(cleanMath);
-      await handleSolveMath(cleanMath);
+      const currentStep = (currentStepIndex || 0) + 1;
+      const resp = await askMathTeacherDoubt(
+        activeLesson?.board_content?.question || inputQuestion,
+        doubtToSolve,
+        currentStep,
+        selectedLanguage
+      );
+
+      setActiveDoubt(resp);
+      setUserDoubtInput('');
+      setSpeechTranscript('');
+
+      const replySpeech = `${resp.teacher_reply} ${resp.understanding_check}`;
+      void speakTeacherText(replySpeech);
     } catch (err) {
-      console.warn('Vision OCR fallback to base64 direct submit:', err);
-      // Read base64 directly
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        await handleSolveMath('Solve the math problem shown in this image with step-by-step presentation.', base64);
-      };
-      reader.readAsDataURL(file);
+      console.warn('Doubt handling note:', err);
     } finally {
-      setLoading(false);
-      setUploadStatus('');
+      setAskingDoubt(false);
+    }
+  };
+
+  // Handle Drag & Drop
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
+      setInputQuestion(`Math Problem File: ${file.name}`);
+    }
+  };
+
+  // Toggle Fullscreen
+  const toggleFullscreen = () => {
+    if (!chalkboardRef.current) return;
+    if (!document.fullscreenElement) {
+      void chalkboardRef.current.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      void document.exitFullscreen();
+      setIsFullscreen(false);
     }
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-16">
-      {/* ── Top Hero: Welcoming AI Teacher Girl ── */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-teal-950 to-stone-950 p-5 sm:p-8 text-white shadow-xl border border-teal-800/40">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-teal-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+    <div className="space-y-8 pb-16 animate-in fade-in duration-300">
 
-        <div className="relative flex flex-col md:flex-row items-center gap-6 sm:gap-8">
-          {/* AI Teacher Girl Mascot Image */}
-          <div className="relative shrink-0 group">
-            <div className="relative h-44 w-32 sm:h-52 sm:w-40 rounded-3xl overflow-hidden bg-gradient-to-t from-teal-900/80 to-transparent p-1 shadow-2xl ring-4 ring-amber-400/80 transition-transform duration-300 group-hover:scale-105">
-              <img
-                src="/teacher-girl.jpg"
-                alt="AI Math Teacher Girl"
-                className="h-full w-full object-cover object-top rounded-2xl"
-              />
+      {/* ─────────────────────────────────────────────────────────────
+          1. HERO BANNER — Matches media_1795443569554_585389cd.jpg
+      ───────────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-100 border border-blue-200/60 p-6 sm:p-8 shadow-sm">
+        {/* Floating math background symbols */}
+        <div className="absolute top-3 left-1/4 text-4xl font-serif text-indigo-300/40 select-none pointer-events-none">π</div>
+        <div className="absolute bottom-4 left-1/3 text-3xl font-serif text-purple-300/40 select-none pointer-events-none">∑</div>
+        <div className="absolute top-6 right-1/4 text-3xl font-serif text-blue-300/40 select-none pointer-events-none">√x</div>
+        <div className="absolute bottom-2 right-1/3 text-4xl font-serif text-indigo-300/30 select-none pointer-events-none">∫</div>
+
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-5 sm:gap-6">
+            {/* Cute Schoolgirl AI Teacher Character Avatar */}
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-indigo-300/70 shadow-md bg-white">
+                <img
+                  src="/teacher-girl.jpg"
+                  alt="AI Math Teacher"
+                  className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <span className="absolute -bottom-2 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white"></span>
+              </span>
             </div>
-            <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-ink shadow-md border border-amber-300">
-              ⭐ AI Math Teacher
-            </span>
-          </div>
 
-          {/* Teacher Speech Bubble & Introduction */}
-          <div className="flex-1 text-center md:text-left space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-teal-800/70 border border-teal-400/40 px-3.5 py-1 text-xs font-bold text-teal-200">
-              <GraduationCap className="h-4 w-4 text-amber-300" />
-              EDU Mind Interactive Math Classroom
-            </div>
-
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
-              Mathematical Study <span className="text-amber-400">with AI Teacher</span>
-            </h1>
-
-            {/* Speech bubble */}
-            <div className="relative rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-4 text-sm sm:text-base leading-relaxed text-teal-50 shadow-inner">
-              <p className="font-medium italic">
-                "{currentGreeting}"
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2 flex-wrap">
+                <span className="text-indigo-600 font-serif">π</span>
+                <span>Mathematical Study with</span>
+                <span className="bg-gradient-to-r from-purple-700 via-indigo-600 to-pink-600 bg-clip-text text-transparent">
+                  AI Teacher
+                </span>
+              </h1>
+              <p className="text-base sm:text-lg font-serif italic text-purple-900/80 font-medium mt-1">
+                Upload. Learn. Understand.
+              </p>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1 font-sans">
+                Upload your Maths syllabus and start learning with AI!
               </p>
             </div>
+          </div>
 
-            <p className="text-xs sm:text-sm text-stone-300 font-normal">
-              Scan any math question, textbook equation, or syllabus topic. Your AI Teacher writes the full step-by-step solution, core formulas, and exam marking tips on the blackboard!
-            </p>
+          {/* Right Sparkle Badge */}
+          <div className="hidden lg:flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-purple-200/80 rounded-2xl px-5 py-3 text-purple-900 shadow-sm shrink-0">
+            <Sparkle className="h-4 w-4 text-amber-500 fill-amber-400 animate-spin-slow" />
+            <span className="text-sm font-bold">Let&apos;s Learn Math Together! ✨</span>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ── Math Question Input & Scanner Section ── */}
-      <section className="card p-5 sm:p-7 space-y-5 bg-white/95 border-2 border-stone-200/90 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-100 text-teal-800 font-bold">
-              <Calculator className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-bold text-ink text-base sm:text-lg">Enter or Scan Math Problem</h2>
-              <p className="text-xs text-stone-500">Solve algebra, trigonometry, calculus, geometry, or probability with exam steps</p>
+      {/* ─────────────────────────────────────────────────────────────
+          2. STEP-BY-STEP SETUP CONTROLS CARD — 3 Columns
+      ───────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-indigo-100/90 shadow-md p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+
+        {/* Column 1: Choose Language */}
+        <div className="flex flex-col justify-between space-y-3 p-4 rounded-2xl bg-slate-50/70 border border-slate-200/70">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+              1
+            </div>
+            <h3 className="font-bold text-slate-800 text-sm">Choose Language</h3>
+          </div>
+
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLanguage('en');
+                  setLanguage('en');
+                }}
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedLanguage === 'en'
+                    ? 'bg-purple-700 text-white shadow-md'
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>🌐 English</span>
+                {selectedLanguage === 'en' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLanguage('ta');
+                  setLanguage('ta');
+                }}
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedLanguage === 'ta'
+                    ? 'bg-purple-700 text-white shadow-md'
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>அ தமிழ்</span>
+                {selectedLanguage === 'ta' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+              </button>
+            </div>
+
+            {/* Other Languages Dropdown */}
+            <select
+              value={selectedLanguage}
+              onChange={(e) => {
+                const lang = e.target.value;
+                setSelectedLanguage(lang);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setLanguage(lang as any);
+              }}
+              className="w-full text-xs font-semibold py-2 px-3 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            >
+              <option value="en">English (Default)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Column 2: Upload Maths Syllabus (PDF or Photo) */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex flex-col justify-between p-4 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
+            isDragging
+              ? 'border-indigo-500 bg-indigo-50/70'
+              : selectedFile
+              ? 'border-emerald-400 bg-emerald-50/50'
+              : 'border-slate-300 hover:border-indigo-400 bg-slate-50/70'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                2
+              </div>
+              <h3 className="font-bold text-slate-800 text-sm">Upload Maths Syllabus</h3>
+            </div>
+            {selectedFile && (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                <CheckCircle2 className="h-3 w-3" /> Ready
+              </span>
+            )}
+          </div>
+
+          <div className="py-2 flex items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+              {selectedFile ? (
+                selectedFile.name.endsWith('.pdf') ? (
+                  <FileText className="h-5 w-5 text-purple-700" />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-indigo-700" />
+                )
+              ) : (
+                <FileUp className="h-5 w-5" />
+              )}
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-slate-800 truncate max-w-[170px]">
+                {selectedFile ? selectedFile.name : 'Click to Upload or Drag & Drop'}
+              </p>
+              <p className="text-[11px] text-slate-500">Only Maths PDF / Image Allowed</p>
             </div>
           </div>
-          <LanguageSelect />
-        </div>
 
-        {/* Input Textarea */}
-        <div className="space-y-2">
-          <textarea
-            value={inputQuestion}
-            onChange={(e) => setInputQuestion(e.target.value)}
-            rows={3}
-            placeholder={
-              language === 'ta'
-                ? 'கணக்கு கேள்வி அல்லது சமன்பாட்டை தட்டச்சு செய்யவும் (எ.கா: Solve: 2x² + 5x - 3 = 0)...'
-                : language === 'hi'
-                ? 'गणित का प्रश्न या समीकरण यहाँ टाइप करें (उदा: 2x² + 5x - 3 = 0)...'
-                : 'Type your math problem or formula here (e.g., Solve: 2x² + 5x - 3 = 0 or integrate x sin(x) dx)...'
-            }
-            className="input font-mono text-sm sm:text-base leading-relaxed resize-y min-h-24"
+          <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-200/60">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                cameraInputRef.current?.click();
+              }}
+              className="text-[11px] font-semibold text-indigo-700 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Camera className="h-3 w-3" /> Take Photo
+            </button>
+            <span className="text-slate-300">|</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="text-[11px] font-semibold text-indigo-700 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <ImagePlus className="h-3 w-3" /> Browse File
+            </button>
+          </div>
+
+          {/* Hidden inputs */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                setSelectedFile(file);
+                setInputQuestion(`Uploaded Math File: ${file.name}`);
+              }
+            }}
+            accept=".pdf,image/*,.txt"
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={cameraInputRef}
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                setSelectedFile(file);
+                setInputQuestion(`Camera Photo: ${file.name}`);
+              }
+            }}
+            accept="image/*"
+            capture="environment"
+            className="hidden"
           />
         </div>
 
-        {/* Scan & Upload Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            disabled={loading}
-            className="btn-secondary text-xs sm:text-sm py-2 px-3.5 flex items-center gap-1.5"
-          >
-            <ImagePlus className="h-4 w-4 text-teal-700" />
-            Choose Photo
-          </button>
-
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={loading}
-            className="btn-secondary text-xs sm:text-sm py-2 px-3.5 flex items-center gap-1.5"
-          >
-            <Camera className="h-4 w-4 text-teal-700" />
-            Take Photo
-          </button>
-
-          <button
-            type="button"
-            onClick={() => documentInputRef.current?.click()}
-            disabled={loading}
-            className="btn-secondary text-xs sm:text-sm py-2 px-3.5 flex items-center gap-1.5"
-          >
-            <FileUp className="h-4 w-4 text-teal-700" />
-            Upload Math PDF
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSolveMath()}
-            disabled={loading || !inputQuestion.trim()}
-            className="btn-primary ml-auto text-xs sm:text-sm py-2.5 px-6 flex items-center gap-2 bg-gradient-to-r from-teal-600 via-indigo-600 to-purple-600 text-white font-bold shadow-md shadow-indigo-600/30 active:scale-95 transition-all"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-amber-300" />}
-            {loading ? 'Teacher is solving...' : 'Ask Teacher to Teach & Solve'}
-          </button>
-        </div>
-
-        {/* Hidden File Inputs */}
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImageFile(file);
-            e.target.value = '';
-          }}
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImageFile(file);
-            e.target.value = '';
-          }}
-        />
-        <input
-          ref={documentInputRef}
-          type="file"
-          accept=".pdf,.txt,application/pdf,text/plain"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImageFile(file);
-            e.target.value = '';
-          }}
-        />
-
-        {/* Upload/Scanning Status */}
-        {loading && uploadStatus && (
-          <div className="flex items-center gap-2 rounded-xl bg-teal-50 border border-teal-200 p-3 text-xs text-teal-900 font-semibold animate-pulse">
-            <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
-            {uploadStatus}
+        {/* Column 3: Analyze with AI Button */}
+        <div className="flex flex-col justify-between space-y-3 p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-purple-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
+              3
+            </div>
+            <h3 className="font-bold text-slate-800 text-sm">Analyze with AI</h3>
           </div>
-        )}
 
-        {/* Preset Sample Math Problems */}
-        <div className="space-y-1.5 pt-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            ⚡ Quick Practice Questions (Click to Solve):
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {presets.map((p, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setInputQuestion(p.question);
-                  void handleSolveMath(p.question);
-                }}
-                className="rounded-xl border border-stone-200/90 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:border-teal-500 hover:bg-teal-50/50 hover:text-teal-900 transition-colors cursor-pointer"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {error && <ErrorNotice message={error} />}
-      </section>
-
-      {/* ── Active Math Blackboard / Chalkboard ── */}
-      {activeLesson && (
-        <section id="math-chalkboard" className="space-y-6 animate-fade-up">
-          {/* Blackboard Container with wooden bezel */}
-          <div className="relative rounded-3xl border-8 sm:border-12 border-amber-900 bg-emerald-950 p-4 sm:p-8 text-stone-100 shadow-2xl ring-4 ring-black/40">
-            {/* Wooden Chalk Shelf Effect */}
-            <div className="absolute top-2 right-4 flex items-center gap-2">
-              <span className="h-3 w-8 rounded-sm bg-white/90 shadow-xs" title="White Chalk" />
-              <span className="h-3 w-8 rounded-sm bg-amber-300 shadow-xs" title="Yellow Chalk" />
-              <span className="h-3 w-8 rounded-sm bg-cyan-300 shadow-xs" title="Cyan Chalk" />
-            </div>
-
-            {/* Blackboard Title */}
-            <div className="border-b-2 border-dashed border-emerald-800 pb-3 mb-5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-emerald-400">
-                  📐 CLASSROOM BLACKBOARD · {activeLesson.detected_topic}
-                </span>
-                <span className="text-xs font-mono text-stone-400">
-                  Step {currentStepIndex + 1} of {activeLesson.board_content.steps.length}
-                </span>
-              </div>
-            </div>
-
-            {/* 1. User's Question at the top of the board */}
-            <div className="mb-6 rounded-2xl bg-black/40 border border-emerald-700/50 p-4 font-mono">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block mb-1">
-                📌 QUESTION:
-              </span>
-              <p className="text-sm sm:text-base font-semibold text-white whitespace-pre-wrap leading-relaxed">
-                {activeLesson.board_content.question}
-              </p>
-            </div>
-
-            {/* 2. Core Formula & Given Data */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {activeLesson.board_content.core_formula && (
-                <div className="rounded-2xl bg-amber-950/40 border border-amber-600/50 p-3.5 font-mono">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block mb-1">
-                    📐 CORE FORMULA:
-                  </span>
-                  <p className="text-sm font-extrabold text-amber-200">
-                    {activeLesson.board_content.core_formula}
-                  </p>
-                </div>
-              )}
-
-              {activeLesson.board_content.given_data && (
-                <div className="rounded-2xl bg-cyan-950/40 border border-cyan-600/50 p-3.5 font-mono">
-                  <span className="text-xs font-bold uppercase tracking-wider text-cyan-300 block mb-1">
-                    📋 GIVEN PARAMETERS:
-                  </span>
-                  <p className="text-sm font-semibold text-cyan-200">
-                    {activeLesson.board_content.given_data}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Ready to Start Pause Gate ── */}
-            {!isTeachingStarted ? (
-              <div className="my-8 rounded-3xl border-2 border-amber-400 bg-amber-950/70 p-6 text-center space-y-4 backdrop-blur-md shadow-xl animate-pulse">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-ink font-black text-2xl shadow-lg">
-                  ❓
-                </span>
-                <div className="space-y-1">
-                  <h3 className="font-display text-xl sm:text-2xl font-black text-amber-200">
-                    {activeLesson.ready_prompt || 'Shall we start the lesson?'}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-stone-300">
-                    The question and core formulas are prepared on the board. Tap below to have your AI Teacher explain step-by-step!
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsTeachingStarted(true);
-                      void handleToggleVoice();
-                    }}
-                    className="btn-primary py-3.5 px-8 text-sm sm:text-base font-extrabold flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 hover:from-emerald-600 hover:to-indigo-700 text-ink shadow-lg shadow-emerald-500/30 rounded-2xl cursor-pointer"
-                  >
-                    <Play className="h-5 w-5 fill-current" />
-                    {language === 'ta' ? 'ஆம், பாடத்தை தொடங்கலாம்!' : language === 'hi' ? 'हाँ, पाठ शुरू करें!' : 'Yes, Start the Lesson!'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsTeachingStarted(true)}
-                    className="rounded-2xl border border-stone-400/80 bg-stone-900/80 px-5 py-3 text-xs sm:text-sm font-semibold text-stone-200 hover:bg-stone-800 transition-colors"
-                  >
-                    View All Steps Directly
-                  </button>
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={() => handleAnalyzeSyllabus()}
+            disabled={loading}
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-75"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Solving Math...</span>
+              </>
             ) : (
-              /* ── Interactive Step-by-Step Lesson & Marking Tips ── */
-              <div className="space-y-6">
-                {/* Steps Accordion / Carousel */}
-                <div className="space-y-4">
-                  {activeLesson.board_content.steps.map((step, sIdx) => {
-                    const isCurrent = sIdx === currentStepIndex;
+              <>
+                <Sparkles className="h-4 w-4" />
+                <span>✨ Analyze Now ➔</span>
+              </>
+            )}
+          </button>
+
+          <p className="text-[11px] text-center text-slate-500 flex items-center justify-center gap-1">
+            <span>⚡</span> It will only take a few seconds...
+          </p>
+        </div>
+      </div>
+
+      {/* Upload progress & error notice */}
+      {uploadStatus && (
+        <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center gap-3 text-xs font-semibold text-indigo-900 animate-pulse">
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-600 shrink-0" />
+          <span>{uploadStatus}</span>
+        </div>
+      )}
+
+      {error && (
+        <ErrorNotice
+          message={error}
+          actionLabel="Try Solving Again"
+          onAction={() => handleAnalyzeSyllabus()}
+        />
+      )}
+
+      {/* Quick math preset topics */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="font-bold text-slate-500 shrink-0 flex items-center gap-1">
+          <Lightbulb className="h-3.5 w-3.5 text-amber-500" /> Presets:
+        </span>
+        {presets.map((preset, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => {
+              setInputQuestion(preset.question);
+              setSelectedFile(null);
+              void handleAnalyzeSyllabus(preset.question);
+            }}
+            className="py-1 px-3 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-300 font-medium whitespace-nowrap transition-colors cursor-pointer"
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. LEARNING VIEW ARENA — AI Teacher (Left) + Blackboard (Right)
+      ───────────────────────────────────────────────────────────── */}
+      <div id="chalkboard-arena" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        {/* ────── LEFT PANEL: AI Teacher Interactive Panel (4 Cols) ────── */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200 shadow-xl p-5 space-y-4">
+
+            {/* Header: AI Teacher + Online Status */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+                  🤖
+                </div>
+                <h3 className="font-extrabold text-slate-800 text-sm">AI Teacher</h3>
+              </div>
+              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Online</span>
+              </span>
+            </div>
+
+            {/* Teacher Dynamic Speech Bubble with Arrow */}
+            <div className="relative bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-4 text-xs sm:text-sm font-medium text-purple-950 leading-relaxed shadow-inner">
+              <div className="flex items-start gap-2">
+                <Volume2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5 animate-pulse" />
+                <p>{teacherBubbleText}</p>
+              </div>
+              {/* Bubble pointer triangle */}
+              <div className="absolute -bottom-2 left-8 w-4 h-4 bg-gradient-to-br from-purple-50 to-indigo-50 border-r border-b border-purple-200 rotate-45"></div>
+            </div>
+
+            {/* Live Interactive Microphone & Sound Waves Area */}
+            <div className="pt-2 pb-1 flex flex-col items-center justify-center space-y-3">
+              {/* Animated Sound Wave Bars */}
+              <div className="flex items-center gap-1 h-6">
+                {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.4, 0.8, 0.6].map((height, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: `${(isPlayingAudio || isListening ? height : 0.2) * 24}px`,
+                      transition: 'height 0.2s ease-in-out'
+                    }}
+                    className={`w-1 rounded-full ${
+                      isListening
+                        ? 'bg-rose-500'
+                        : isPlayingAudio
+                        ? 'bg-purple-600 animate-pulse'
+                        : 'bg-slate-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Big Circular Microphone Button */}
+              <div className="relative">
+                {isListening && (
+                  <span className="animate-ping absolute inset-0 rounded-full bg-purple-400 opacity-75"></span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isListening) {
+                      stopVoiceListening();
+                      if (speechTranscript) {
+                        void handleAskDoubt(speechTranscript);
+                      }
+                    } else {
+                      startVoiceListening();
+                    }
+                  }}
+                  className={`relative w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer ${
+                    isListening
+                      ? 'bg-gradient-to-tr from-rose-600 to-pink-500 text-white ring-4 ring-rose-200'
+                      : 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/30'
+                  }`}
+                  title={isListening ? 'Tap to submit doubt' : 'Tap to speak your doubt'}
+                >
+                  <Mic className={`h-7 w-7 ${isListening ? 'animate-bounce' : ''}`} />
+                </button>
+              </div>
+
+              {/* Live Status Label */}
+              <p className="text-xs font-bold text-center">
+                {isListening ? (
+                  <span className="text-rose-600 flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping"></span>
+                    Listening to your voice... Speak now!
+                  </span>
+                ) : (
+                  <span className="text-slate-600">
+                    🎙️ Tap Mic to Speak / Ask Doubt
+                  </span>
+                )}
+              </p>
+
+              {/* Speech transcript preview */}
+              {speechTranscript && (
+                <div className="w-full text-xs p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-medium">
+                  &ldquo;{speechTranscript}&rdquo;
+                  <button
+                    type="button"
+                    onClick={() => handleAskDoubt(speechTranscript)}
+                    className="ml-2 text-indigo-700 font-bold underline"
+                  >
+                    Send Doubt
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Schoolgirl Teacher Image Card */}
+            <div className="rounded-2xl overflow-hidden border border-purple-100 bg-gradient-to-b from-purple-100/50 to-indigo-100/50 p-2 flex justify-center">
+              <img
+                src="/teacher-girl.jpg"
+                alt="Teacher Girl with Pointer"
+                className="w-full max-h-56 object-contain rounded-xl hover:scale-102 transition-transform duration-300"
+              />
+            </div>
+
+            {/* Doubt Text Input Box (Alternative to Mic) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <label className="text-xs font-bold text-slate-700 block">
+                Ask Teacher a Doubt / Question:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userDoubtInput}
+                  onChange={(e) => setUserDoubtInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAskDoubt()}
+                  placeholder={selectedLanguage === 'ta' ? 'புரியல, மறுபடியும் சொல்லுங்க...' : 'Type doubt or question...'}
+                  className="flex-1 text-xs py-2 px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAskDoubt()}
+                  disabled={askingDoubt || !userDoubtInput.trim()}
+                  className="p-2 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white rounded-xl cursor-pointer"
+                >
+                  {askingDoubt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Active Doubt Resolution Box */}
+            {activeDoubt && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5 animate-in fade-in">
+                <p className="font-bold flex items-center gap-1 text-amber-800">
+                  <Lightbulb className="h-3.5 w-3.5 text-amber-600" /> Teacher&apos;s Simpler Explanation:
+                </p>
+                <p className="leading-relaxed">{activeDoubt.teacher_reply}</p>
+                {activeDoubt.simplified_step_explanation && (
+                  <p className="p-2 bg-white/80 rounded-lg font-mono text-[11px] text-slate-800">
+                    {activeDoubt.simplified_step_explanation}
+                  </p>
+                )}
+                <p className="font-semibold text-emerald-700 italic">
+                  {activeDoubt.understanding_check}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ────── RIGHT PANEL: Wooden-Framed Slate Blackboard (8 Cols) ────── */}
+        <div className="lg:col-span-8 space-y-4">
+          <div
+            ref={chalkboardRef}
+            className={`relative overflow-hidden rounded-3xl bg-[#143224] text-white shadow-2xl transition-all ${
+              isFullscreen
+                ? 'fixed inset-0 z-50 rounded-none p-6 md:p-10 flex flex-col justify-between'
+                : 'border-[14px] sm:border-[18px] border-[#844b20] p-6 sm:p-8 min-h-[580px]'
+            }`}
+            style={{
+              boxShadow: 'inset 0 0 50px rgba(0,0,0,0.6), 0 20px 30px rgba(0,0,0,0.35)',
+              backgroundImage: 'radial-gradient(circle at 50% 50%, #1e4533 0%, #10291e 100%)'
+            }}
+          >
+            {/* Top Blackboard Chalk Details */}
+            <div className="space-y-6">
+
+              {/* Chalkboard Topic Header in Bright Yellow Chalk */}
+              <div className="text-center border-b border-emerald-800/60 pb-4">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-serif tracking-wide drop-shadow-md">
+                  {activeLesson?.detected_topic || 'Quadratic Equations'}
+                </h2>
+                <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
+              </div>
+
+              {/* Problem Statement */}
+              <div className="text-base sm:text-lg font-mono text-emerald-100 flex items-start gap-2">
+                <span className="text-amber-400 font-bold shrink-0">Solve :</span>
+                <span className="font-semibold">
+                  {activeLesson?.board_content?.question || inputQuestion || 'x² + 5x + 6 = 0'}
+                </span>
+              </div>
+
+              {/* Core Formula (If Available) */}
+              {activeLesson?.board_content?.core_formula && (
+                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                  <span className="text-amber-300 font-bold">Formula : </span>
+                  {activeLesson.board_content.core_formula}
+                </div>
+              )}
+
+              {/* Step-by-Step Chalk Working */}
+              <div className="space-y-4 pt-2">
+                {activeLesson?.board_content?.steps && activeLesson.board_content.steps.length > 0 ? (
+                  activeLesson.board_content.steps.map((step, idx) => {
+                    const isActive = isTeachingStarted && currentStepIndex === idx;
                     return (
                       <div
-                        key={sIdx}
-                        className={`rounded-2xl p-4 sm:p-5 transition-all font-mono ${
-                          isCurrent
-                            ? 'bg-emerald-900/70 border-2 border-teal-400 shadow-lg'
-                            : 'bg-black/30 border border-emerald-800/40 opacity-80 hover:opacity-100'
+                        key={idx}
+                        onClick={() => handleGoToStep(idx)}
+                        className={`p-3.5 rounded-xl transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-emerald-900/90 border-2 border-amber-400 shadow-md translate-x-1'
+                            : 'hover:bg-emerald-900/40 border border-transparent'
                         }`}
                       >
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-emerald-800/50">
-                          <span className="text-xs sm:text-sm font-bold text-amber-300 flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-ink text-xs font-black">
-                              {step.step_number}
-                            </span>
-                            {step.title}
+                        <div className="flex items-start gap-3">
+                          <span className="font-serif font-bold text-amber-300 shrink-0 text-sm sm:text-base underline decoration-amber-400/50">
+                            Step {step.step_number || idx + 1} :
                           </span>
-                          <span className="text-[10px] font-semibold bg-emerald-950 text-teal-300 px-2 py-0.5 rounded-full border border-teal-700">
-                            Step {sIdx + 1}
-                          </span>
-                        </div>
-
-                        {/* Calculation work in chalk */}
-                        <div className="py-1 text-sm sm:text-base font-bold text-white whitespace-pre-wrap leading-relaxed pl-8">
-                          {step.work}
-                        </div>
-
-                        {/* Exam Step-Wise Marking Tip */}
-                        {step.marking_tip && (
-                          <div className="mt-3 ml-8 rounded-xl bg-amber-950/60 border border-amber-500/60 p-2.5 text-xs text-amber-200 font-sans flex items-start gap-2">
-                            <Award className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
-                            <div>
-                              <strong className="text-amber-300">Exam Marking Tip: </strong>
-                              <span>{step.marking_tip}</span>
-                            </div>
+                          <div className="space-y-1 flex-1">
+                            <p className="text-xs sm:text-sm font-sans font-medium text-slate-100">
+                              {step.title}
+                            </p>
+                            <p className="text-xs sm:text-sm font-mono font-bold text-white whitespace-pre-wrap">
+                              {step.work}
+                            </p>
+                            {/* Exam Marking Tip */}
+                            {step.marking_tip && (
+                              <p className="text-[11px] font-sans font-medium text-amber-200/90 pt-1 flex items-center gap-1">
+                                <Award className="h-3 w-3 text-amber-400 shrink-0" />
+                                <span>{step.marking_tip}</span>
+                              </p>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
-                  })}
-                </div>
-
-                {/* 3. Final Answer Box */}
-                {activeLesson.board_content.final_answer && (
-                  <div className="rounded-2xl border-3 border-emerald-400 bg-emerald-900/60 p-5 text-center font-mono shadow-xl space-y-1">
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-300 block">
-                      🎯 FINAL ANSWER:
-                    </span>
-                    <p className="text-lg sm:text-2xl font-black text-white">
-                      {activeLesson.board_content.final_answer}
-                    </p>
-                  </div>
-                )}
-
-                {/* 4. Presentation Tip for Full Marks */}
-                {activeLesson.board_content.exam_presentation_tip && (
-                  <div className="rounded-2xl border border-teal-500/60 bg-teal-950/50 p-4 text-xs sm:text-sm text-teal-100 flex items-start gap-3">
-                    <Lightbulb className="h-5 w-5 shrink-0 text-amber-300 mt-0.5" />
-                    <div>
-                      <strong className="text-amber-300 block mb-0.5">Presentation Tip for 100% Marks:</strong>
-                      <span>{activeLesson.board_content.exam_presentation_tip}</span>
+                  })
+                ) : (
+                  // Default sample steps matching mockup
+                  <div className="space-y-4 font-mono text-xs sm:text-sm">
+                    <div className="flex items-start gap-2">
+                      <span className="font-bold text-amber-300 shrink-0 underline">Step 1 :</span>
+                      <span>Find two numbers whose sum is 5 and product is 6. ➔ 2 and 3</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-bold text-amber-300 shrink-0 underline">Step 2 :</span>
+                      <span>Factorize the equation: (x + 2)(x + 3) = 0</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-bold text-amber-300 shrink-0 underline">Step 3 :</span>
+                      <span>x + 2 = 0 or x + 3 = 0 ➔ x = -2, x = -3</span>
                     </div>
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* ── AI Teacher Girl Interactive Spoken Walkthrough Bar ── */}
-          <div className="card p-5 sm:p-7 bg-gradient-to-r from-teal-50 via-white to-indigo-50 border-2 border-teal-300/80 shadow-md space-y-4">
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden shrink-0 ring-2 ring-teal-500 shadow-md">
-                <img src="/teacher-girl.jpg" alt="AI Teacher" className="h-full w-full object-cover object-top" />
-              </div>
-
-              <div className="flex-1 text-center sm:text-left space-y-1">
-                <div className="flex items-center justify-center sm:justify-start gap-2">
-                  <h4 className="font-extrabold text-ink text-base sm:text-lg">AI Teacher Spoken Walkthrough</h4>
-                  <span className="rounded-full bg-teal-100 text-teal-900 px-2 py-0.5 text-[10px] font-bold">
-                    Natural Spoken Voice
-                  </span>
+              {/* Framed Final Answer Box (Chalk Box) */}
+              <div className="mt-6 flex justify-end">
+                <div className="inline-block p-4 rounded-2xl border-2 border-amber-400 bg-emerald-950/80 shadow-lg text-center min-w-[220px]">
+                  <p className="text-xs font-serif font-bold text-amber-300 tracking-wider">
+                    🎯 FINAL ANSWER:
+                  </p>
+                  <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
+                    {activeLesson?.board_content?.final_answer || 'x = -2,  x = -3'}
+                  </p>
                 </div>
-                <p className="text-xs sm:text-sm text-stone-700 leading-relaxed italic">
-                  "{activeLesson.teacher_dialogue}"
-                </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
+              {!isTeachingStarted && activeLesson && (
+                <div className="mt-4 p-4 rounded-2xl bg-amber-950/70 border border-amber-500/80 text-center space-y-3 animate-bounce-slow">
+                  <p className="text-sm sm:text-base font-bold text-amber-200">
+                    ✨ {activeLesson.ready_prompt || 'பாடத்தை ஆரம்பிக்கலாமா? (Shall we start?)'}
+                  </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleStartTeaching}
+                      className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-transform"
+                    >
+                      🚀 Yes, Start Lesson! (ஆரம்பிக்கலாம்)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startVoiceListening()}
+                      className="py-2.5 px-4 rounded-xl bg-emerald-900 border border-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Mic className="h-3.5 w-3.5" />
+                      <span>Say &ldquo;Yes&rdquo;</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Chalkboard Audio Controller Bar — Exact Match to Image */}
+            <div className="mt-8 pt-4 border-t border-emerald-800/60 flex items-center justify-between gap-3 text-xs">
+              {/* Play / Pause Button in Purple Circle */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isPlayingAudio && audioRef.current) {
+                    audioRef.current.pause();
+                    setIsPlayingAudio(false);
+                  } else if (audioUrl && audioRef.current) {
+                    void audioRef.current.play();
+                    setIsPlayingAudio(true);
+                  } else {
+                    const speech = activeLesson?.spoken_audio_script || activeLesson?.teacher_dialogue || teacherBubbleText;
+                    void speakTeacherText(speech);
+                  }
+                }}
+                disabled={loadingAudio}
+                className="w-10 h-10 rounded-full bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center shadow-md cursor-pointer shrink-0 active:scale-90 transition-transform"
+              >
+                {loadingAudio ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isPlayingAudio ? (
+                  <Pause className="h-4 w-4 fill-white" />
+                ) : (
+                  <Play className="h-4 w-4 fill-white ml-0.5" />
+                )}
+              </button>
+
+              {/* Time Tracker */}
+              <span className="font-mono text-[11px] text-emerald-200 shrink-0">
+                {String(Math.floor(audioCurrentTime / 60)).padStart(2, '0')}:
+                {String(audioCurrentTime % 60).padStart(2, '0')} / 00:45
+              </span>
+
+              {/* Scrubber slider */}
+              <div className="flex-1 max-w-md bg-emerald-950 h-2 rounded-full overflow-hidden relative cursor-pointer">
+                <div
+                  style={{ width: `${Math.min(100, (audioCurrentTime / (audioDuration || 45)) * 100)}%` }}
+                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 rounded-full transition-all duration-300"
+                />
+              </div>
+
+              {/* Volume & Fullscreen Actions */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleToggleVoice}
-                  disabled={loadingAudio}
-                  className={`btn-primary py-3 px-5 text-xs sm:text-sm font-bold flex items-center gap-2 ${
-                    isPlayingAudio ? 'bg-rose-600 hover:bg-rose-700' : 'bg-teal-700 hover:bg-teal-800'
-                  }`}
+                  onClick={() => {
+                    const next = !isMuted;
+                    setIsMuted(next);
+                    if (audioRef.current) audioRef.current.muted = next;
+                  }}
+                  className="p-1.5 text-emerald-300 hover:text-white cursor-pointer"
+                  title="Toggle Mute"
                 >
-                  {loadingAudio ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isPlayingAudio ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                  {isPlayingAudio ? 'Pause Voice' : 'Listen Teacher'}
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="p-1.5 text-emerald-300 hover:text-white cursor-pointer"
+                  title="Fullscreen Chalkboard"
+                >
+                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+
+                {/* Download Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (audioUrl) {
+                      const a = document.createElement('a');
+                      a.href = audioUrl;
+                      a.download = `${activeLesson?.detected_topic || 'Math_Lesson'}_Audio.mp3`;
+                      a.click();
+                    } else {
+                      alert('Generating audio file for download...');
+                      const speech = activeLesson?.spoken_audio_script || activeLesson?.teacher_dialogue || teacherBubbleText;
+                      void speakTeacherText(speech);
+                    }
+                  }}
+                  className="py-1.5 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] flex items-center gap-1.5 shadow cursor-pointer shrink-0"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Download</span>
                 </button>
               </div>
             </div>
 
-            {/* Navigation buttons for next/prev steps */}
-            {isTeachingStarted && (
-              <div className="flex items-center justify-between pt-3 border-t border-stone-200">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStepIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={currentStepIndex === 0}
-                  className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Previous Step
-                </button>
-
-                <div className="text-xs font-bold text-stone-600">
-                  Step {currentStepIndex + 1} of {activeLesson.board_content.steps.length}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentStepIndex((prev) =>
-                      Math.min(activeLesson.board_content.steps.length - 1, prev + 1)
-                    )
-                  }
-                  disabled={currentStepIndex === activeLesson.board_content.steps.length - 1}
-                  className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
-                >
-                  Next Step <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </div>
-        </section>
-      )}
+        </div>
+
+      </div>
+
     </div>
   );
 }

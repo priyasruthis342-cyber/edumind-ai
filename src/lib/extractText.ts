@@ -234,13 +234,16 @@ async function extractPdf(file: File, onProgress?: (msg: string) => void): Promi
     }
   }
 
-  // If digital text was extracted successfully, return complete A-to-Z text!
-  if (totalChars > 40) {
+  // If digital text was extracted and is genuinely legible academic text, return complete A-to-Z text!
+  const combinedDigital = pages.join('\n\n');
+  const isHighQualityDigital = totalChars > 80 && isLegibleAcademicText(combinedDigital);
+
+  if (isHighQualityDigital) {
     await document.destroy();
-    return cleanMathFormatting(pages.join('\n\n'));
+    return cleanMathFormatting(combinedDigital);
   }
 
-  // 2. Scanned PDF fallback: render up to 15 pages to canvas & extract with Gemini Vision
+  // 2. Scanned / Handwritten PDF fallback: render pages to canvas & extract with Gemini Vision
   onProgress?.('Scanned PDF detected. Extracting all pages with Gemini Vision...');
   const maxOcrPages = Math.min(totalPages, 15);
   const ocrPages: string[] = [];

@@ -358,4 +358,61 @@ export async function fetchMathTeacherLesson(
   }
 }
 
+export interface MathTeacherDoubtResponse {
+  success: boolean;
+  teacher_reply: string;
+  simplified_step_explanation?: string;
+  understanding_check: string;
+  spoken_audio_script: string;
+}
+
+/**
+ * Interactive two-way doubt solving with the AI Math Teacher.
+ * The teacher responds in warm, simple everyday spoken language,
+ * explains the step in simpler terms, and verifies understanding.
+ */
+export async function askMathTeacherDoubt(
+  mathQuestion: string,
+  userDoubt: string,
+  activeStep: number = 1,
+  language: LanguageCode | string = 'ta'
+): Promise<MathTeacherDoubtResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/gemini/math-teacher-doubt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mathQuestion, userDoubt, activeStep, language }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Doubt resolution failed (${res.status})`);
+    }
+
+    return await res.json();
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    console.warn('askMathTeacherDoubt note:', err);
+    const isTa = language === 'ta';
+    return {
+      success: true,
+      teacher_reply: isTa
+        ? 'கவலையே படாதீங்க! இந்த ஸ்டெப்ல ஃபார்முலாவை சரியாக பிரதியிட்டு படிப்படியா கணக்கிடுங்கள்.'
+        : "Don't worry at all! Let us review this step carefully by substituting values into the governing formula.",
+      understanding_check: isTa
+        ? 'இப்போ புரியுதா பாருங்க! வேற ஏதாச்சும் சந்தேகம் இருந்தா கேளுங்க.'
+        : 'See if you understand now! Feel free to ask if anything is unclear.',
+      spoken_audio_script: isTa
+        ? 'கவலையே படாதீங்க! இந்த ஸ்டெப்பை மீண்டும் மெதுவாக பாருங்கள். இப்போ புரியுதா பாருங்க!'
+        : "Don't worry! Let us review this step again slowly. See if you understand now!",
+    };
+  }
+}
+
+
 

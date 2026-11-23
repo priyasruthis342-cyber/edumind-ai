@@ -214,6 +214,22 @@ export function TheoryPage() {
     }
   };
 
+  // Helper to ensure clean spoken text and strip accidental raw JSON syntax
+  const cleanSpokenDisplay = (raw?: string): string => {
+    if (!raw) return '';
+    let str = raw.trim();
+    if (str.startsWith('{') && (str.includes('"simple_explanation"') || str.includes('"story"'))) {
+      try {
+        const parsed = JSON.parse(str);
+        return parsed.simple_explanation || parsed.story || parsed.title || str;
+      } catch {
+        const m = str.match(/"(?:simple_explanation|story)":\s*"([^"]+)"/);
+        if (m) return m[1].replace(/\\n/g, '\n');
+      }
+    }
+    return str;
+  };
+
   // Helper to clean messy OCR artifacts (||, |, ~N, broken chars) from extracted syllabus text
   const cleanSyllabusForSpeech = (raw: string): string => {
     if (!raw) return '';
@@ -247,6 +263,11 @@ export function TheoryPage() {
       // Pass the real cleaned dynamic syllabus text to the Gemini story converter
       const generated = await fetchGeminiStory(dynamicText, audioLang);
       clearTimeout(safetyTimer);
+      if (generated) {
+        generated.title = cleanSpokenDisplay(generated.title) || fileName || 'Syllabus Lesson';
+        generated.story = cleanSpokenDisplay(generated.story) || dynamicText;
+        generated.simple_explanation = cleanSpokenDisplay(generated.simple_explanation) || generated.story;
+      }
       setStoryData(generated);
       setAudioGenerated(true);
     } catch (err) {
@@ -255,8 +276,8 @@ export function TheoryPage() {
       // Fallback professor lecture directly grounded in the student's actual text
       const fallbackTitle = fileName || (audioLang === 'ta' ? 'பாடக் கோட்பாடுகள்' : 'Syllabus Concepts');
       const fallbackLecture = audioLang === 'ta'
-        ? `வணக்கம் மாணவர்களே! நீங்கள் தேர்ந்தெடுத்த பாடத்தை நாம் ஆழமாக, தொடக்கம் முதல் முடிவு வரை (A to Z) ஆய்வு செய்வோம். ${dynamicText.slice(0, 1500)}. இந்த பாடத்தில் குறிப்பிடப்பட்டுள்ள ஒவ்வொரு தலைப்பும் கணினி அறிவியலின் முதன்மையான அடித்தளமாகும். நினைவக அமைப்பில் தரவுகள் எவ்வாறு ஒதுக்கீடு செய்யப்படுகின்றன, சுட்டிகள் (pointers) மற்றும் முகவரிகள் மூலமாக எவ்வாறு தொடர்பு கொள்ளப்படுகின்றன என்பதை நாம் புரிந்து கொள்வது அவசியமாகும். இவற்றை தேர்வில் தகுந்த வரைபடங்களுடன் சமர்ப்பிப்பது முழு மதிப்பெண்களை பெற்று தரும்.`
-        : `Welcome scholars! Let us conduct a comprehensive, deep-dive academic breakdown from A to Z covering: ${dynamicText.slice(0, 1500)}. Each component detailed in your syllabus governs essential memory structures, algorithmic workflows, and operational efficiency. Master these mechanisms systematically for your university examinations.`;
+        ? `வணக்கம் மாணவர்களே! நீங்கள் தேர்ந்தெடுத்த ${fallbackTitle} பாடத்தை நாம் மிக எளிமையாக, முக்கியமான கருத்துக்களை ஒன்றாகப் படிப்போம். ${dynamicText.slice(0, 1500)}. இந்த பாடத்தில் உள்ள ஒவ்வொரு தலைப்பையும் நீங்கள் தேர்வில் தெளிவாக, முக்கியமான குறிப்புகளுடன் எழுதும்போது முழு மதிப்பெண்கள் கிடைக்கும்.`
+        : `Welcome students! Let us break down the core concepts of ${fallbackTitle} in a simple, easy-to-understand way: ${dynamicText.slice(0, 1500)}. Present these points clearly with definitions and formulas in your examination to secure full marks.`;
 
       setStoryData({
         success: true,
@@ -706,10 +727,10 @@ export function TheoryPage() {
                 <span className="text-xs text-stone-500 font-semibold">Language: {audioLang === 'ta' ? 'தமிழ் (Tamil)' : 'English'}</span>
               </div>
               <h3 className="text-lg font-bold text-ink">
-                {storyData?.title || (audioLang === 'ta' ? 'விரிவான பேராசிரியப் பாடம் (A to Z)' : 'Comprehensive Professor Lecture (A to Z)')}
+                {cleanSpokenDisplay(storyData?.title) || (audioLang === 'ta' ? 'விரிவான பேராசிரியப் பாடம் (A to Z)' : 'Comprehensive Professor Lecture (A to Z)')}
               </h3>
               <p className="text-xs text-stone-600 line-clamp-3 leading-relaxed">
-                {storyData?.story || 'In-depth academic lecture analyzing the core principles, behavior, and working mechanisms from A to Z with zero fictional metaphors.'}
+                {cleanSpokenDisplay(storyData?.story) || 'In-depth academic lecture analyzing the core principles, behavior, and working mechanisms from A to Z with zero fictional metaphors.'}
               </p>
 
               <div className="flex items-center gap-3 pt-2">

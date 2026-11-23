@@ -54,21 +54,20 @@ export function AppShell({ children, route }: AppShellProps) {
       <header className="sticky top-0 z-30 border-b border-stone-200/90 bg-white/90 backdrop-blur-md shadow-xs transition-colors">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 via-indigo-600 to-purple-600 text-white font-black shadow-md shadow-indigo-600/30 text-base ring-2 ring-white/80">
-              📚
+            <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black shadow-md shadow-indigo-600/30 text-lg ring-2 ring-white/80">
+              🎓
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <p className="font-display font-extrabold leading-none text-ink text-base sm:text-lg tracking-tight truncate">{t('appName')}</p>
+                <p className="font-display font-black leading-none text-ink text-base sm:text-lg tracking-tight truncate">EDU Mind AI</p>
                 {userName && (
                   <span className="hidden xs:inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-teal-100 to-indigo-100 border border-teal-200/80 px-2.5 py-0.5 text-[11px] font-bold text-teal-900 truncate max-w-[120px] sm:max-w-none shadow-2xs">
                     ✨ {userName}
                   </span>
                 )}
               </div>
-              {/* மொழிக்கு ஏற்ப மாறக்கூடிய மோட்டிவேஷனல் வரி */}
-              <p className="hidden sm:block mt-1 text-xs font-semibold text-indigo-900/70 italic truncate max-w-md">
-                "{currentQuote}"
+              <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                Study Smart • Learn Better
               </p>
             </div>
           </div>
