@@ -163,11 +163,11 @@ function safeParseJson(raw) {
     try {
       const JSON5 = require('json5');
       return JSON5.parse(cleaned);
-    } catch (e2) {}
+    } catch (e2) { }
 
     try {
       return JSON.parse(fixJsonString(cleaned));
-    } catch (e3) {}
+    } catch (e3) { }
 
     try {
       const match = cleaned.match(/\{[\s\S]*\}/);
@@ -179,7 +179,7 @@ function safeParseJson(raw) {
           return JSON.parse(fixJsonString(match[0]));
         }
       }
-    } catch (e5) {}
+    } catch (e5) { }
 
     throw e1;
   }
@@ -717,7 +717,7 @@ function generateLocalExamQA(prompt, language = 'en') {
             : '',
 
           numerical_problem: isTamil
-            ? `**மாதிரி வினா மற்றும் படிநிலையான தீர்வு (Worked-Out Example Problem):**\n- **வினா:** ${title} அமைப்பில் ஆரம்ப மதிப்பு a = 10, வீதம் r = 2 மற்றும் படிநிலைகள் n = 4 எனில், n-வது படிநிலையின் இறுதி மதிப்பைக் கணக்கிடுக.\n- **ஃபார்முலா (Formula):** விடை = a + (n * r)\n- **படி 1:** கொடுக்கப்பட்டவை: a = 10, r = 2, n = 4\n- **படி 2:** கணக்கீடு: விடை = 10 + (4 * 2) = 10 + 8 = 18\n- **இறுதி விடை:** கணக்கிடப்பட்ட மதிப்பு = 18. தேர்வுக்கான முழு மதிப்பெண் தீர்வு.`
+            ? `**மாதிரி வினா மற்றும் படிநிலையான தீர்வு (Worked-Out Example Problem):**\n- **வினா:** ${title} அமைப்பில் ஆரம்ப மதிப்பு a = 10, வீதம் r = 2 மற்றும் படிநிலைகள் n = 4 எனில், n-வது படிநிலையின் இறுதி மதிப்பைக் கணக்கிடுக.\n- **சூத்திரம்:** விடை = a + (n * r)\n- **படி 1:** கொடுக்கப்பட்டவை: a = 10, r = 2, n = 4\n- **படி 2:** கணக்கீடு: விடை = 10 + (4 * 2) = 10 + 8 = 18\n- **இறுதி விடை:** கணக்கிடப்பட்ட மதிப்பு = 18. தேர்வுக்கான முழு மதிப்பெண் தீர்வு.`
             : `**Numerical / Example Problem & Step-by-Step Worked-Out Solution:**\n- **Problem Statement:** In an application of ${title}, calculate the resultant output given Base Parameter a = 100, Growth Factor r = 5, and Stage Count n = 4.\n- **Formula:** Result = a + (n * r)\n- **Step 1 (Parameter Substitution):** a = 100, r = 5, n = 4\n- **Step 2 (Computation):** Result = 100 + (4 * 5) = 100 + 20\n- **Result:** Verified Numerical Value = 120 units.`,
 
           tradeoffs_complexity: isTamil
@@ -1526,7 +1526,7 @@ Return ONLY a valid JSON object matching:
             if (inner.story) parsed.story = inner.story;
             if (inner.simple_explanation) parsed.simple_explanation = inner.simple_explanation;
             if (inner.title) parsed.title = inner.title;
-          } catch {}
+          } catch { }
         }
       }
     }
@@ -1567,7 +1567,7 @@ Return ONLY a valid JSON object matching:
  */
 async function synthesizeNeuralSpeech({ text, language = 'ta', mode = 'story' }) {
   const isTamil = language === 'ta';
-  
+
   // Clean text from OCR noise, markdown formatting, asterisks, brackets, or code fences
   const ocrCleaned = cleanOcrArtifacts(text);
   const cleanedText = ocrCleaned
@@ -1641,7 +1641,7 @@ async function synthesizeNeuralSpeech({ text, language = 'ta', mode = 'story' })
     en: 'en-US-JennyNeural'
   };
   const voice = voiceMap[language] || (isTamil ? 'ta-IN-PallaviNeural' : 'en-US-JennyNeural');
-  
+
   // Natural human tutor and storyteller acoustic parameters
   let rate = '-4%';
   let pitch = '+3Hz';
