@@ -301,6 +301,7 @@ export interface MathStep {
   step_number: number;
   title: string;
   work: string;
+  how_it_came?: string;
   marking_tip: string;
 }
 
@@ -308,6 +309,7 @@ export interface MathBoardContent {
   question: string;
   core_formula: string;
   given_data: string;
+  target_answer?: string;
   steps: MathStep[];
   final_answer: string;
   exam_presentation_tip: string;

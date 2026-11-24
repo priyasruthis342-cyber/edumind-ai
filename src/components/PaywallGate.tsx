@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import {
   CheckCircle2, Crown, Loader2, Lock, ScanLine, Music,
-  ClipboardCheck, X, CreditCard, ShieldCheck, Sparkles, Zap
+  ClipboardCheck, X, CreditCard, ShieldCheck, Sparkles, Zap, PhoneCall
 } from 'lucide-react';
 import { useApp } from '@/context/useApp';
 import {
@@ -9,12 +9,28 @@ import {
   startRazorpayCheckout,
   isPaymentPassActive,
   loadRazorpayScript,
+  checkPhonePaymentStatus,
 } from '@/lib/payment';
 import { BookIllustration } from '@/components/BookIllustration';
 import { ErrorNotice } from '@/components/ui';
 
 export function PaywallGate({ children }: { children: ReactNode }) {
-  const { paidToday } = useApp();
+  const { paidToday, payForToday } = useApp();
+
+  // Auto-check stored phone number on mount if not yet unlocked
+  useEffect(() => {
+    if (!paidToday && !isPaymentPassActive()) {
+      try {
+        const savedPhone = localStorage.getItem('edumind_user_phone');
+        if (savedPhone) {
+          void checkPhonePaymentStatus(savedPhone).then((active) => {
+            if (active) void payForToday('phone_restore');
+          });
+        }
+      } catch { }
+    }
+  }, [paidToday, payForToday]);
+
   if (paidToday || isPaymentPassActive()) return <>{children}</>;
   return <PaywallCard />;
 }
@@ -65,6 +81,40 @@ export function PaymentDialog({ onClose, onPaid }: { onClose: () => void; onPaid
   const [processing, setProcessing] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [phoneInput, setPhoneInput] = useState(() => {
+    try {
+      return localStorage.getItem('edumind_user_phone') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [checkingPhone, setCheckingPhone] = useState(false);
+  const [phoneMessage, setPhoneMessage] = useState<string | null>(null);
+
+  const handleVerifyPhone = async () => {
+    const clean = phoneInput.replace(/\D/g, '').slice(-10);
+    if (clean.length !== 10) {
+      setPhoneMessage('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    setCheckingPhone(true);
+    setPhoneMessage(null);
+    try {
+      const active = await checkPhonePaymentStatus(clean);
+      if (active) {
+        await payForToday('phone_' + clean);
+        setDone(true);
+        setTimeout(() => onPaid(), 1000);
+      } else {
+        setPhoneMessage('No active pass found for today for this phone number.');
+      }
+    } catch {
+      setPhoneMessage('Could not verify phone number. Please try again.');
+    } finally {
+      setCheckingPhone(false);
+    }
+  };
 
   // Preload checkout script immediately when dialog opens for instant modal launch
   useEffect(() => {
@@ -198,6 +248,33 @@ export function PaymentDialog({ onClose, onPaid }: { onClose: () => void; onPaid
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
                 <span>Secured 256-bit Live Payment via Razorpay</span>
               </div>
+            </div>
+
+            {/* Phone Number Verification Alternative */}
+            <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 space-y-2 text-xs">
+              <span className="font-semibold text-stone-800 flex items-center gap-1.5">
+                <PhoneCall className="h-3.5 w-3.5 text-teal-600" />
+                Already paid today? Restore access with phone number
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
+                  className="input py-1.5 px-3 text-xs flex-1 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyPhone}
+                  disabled={checkingPhone || phoneInput.length < 10}
+                  className="btn-secondary text-xs py-1.5 px-3 font-semibold shrink-0 cursor-pointer"
+                >
+                  {checkingPhone ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Restore Pass'}
+                </button>
+              </div>
+              {phoneMessage && <p className="text-[11px] font-medium text-amber-700">{phoneMessage}</p>}
             </div>
 
             {error && <ErrorNotice message={error} />}

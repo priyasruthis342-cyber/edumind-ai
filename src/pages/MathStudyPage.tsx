@@ -347,10 +347,7 @@ export function MathStudyPage() {
 
       setTeacherBubbleText(readyGreeting);
 
-      // Auto-speak the greeting
-      void speakTeacherText(readyGreeting);
-
-      // Smooth scroll to blackboard
+      // Smooth scroll to blackboard (visual focus first - no auto-forced audio)
       setTimeout(() => {
         const boardEl = document.getElementById('chalkboard-arena');
         if (boardEl) boardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -369,15 +366,6 @@ export function MathStudyPage() {
   const handleStartTeaching = () => {
     setIsTeachingStarted(true);
     setCurrentStepIndex(0);
-
-    const steps = activeLesson?.board_content?.steps || [];
-    const firstStep = steps[0];
-
-    const introSpeech = firstStep
-      ? `${firstStep.title}. ${firstStep.work}. ${firstStep.marking_tip}`
-      : (activeLesson?.teacher_dialogue || 'Let us begin our math lesson!');
-
-    void speakTeacherText(introSpeech);
   };
 
   // Step Navigation
@@ -386,9 +374,6 @@ export function MathStudyPage() {
     if (index < 0 || index >= steps.length) return;
 
     setCurrentStepIndex(index);
-    const target = steps[index];
-    const stepSpeech = `${target.title}. ${target.work}. ${target.marking_tip}`;
-    void speakTeacherText(stepSpeech);
   };
 
   // Two-Way Interactive Doubt Solving Handler
@@ -884,90 +869,147 @@ export function MathStudyPage() {
                   <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
                 </div>
 
-                {/* Complete Problem Statement Box */}
-                <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-700/60 font-mono text-emerald-100">
-                  <span className="text-amber-300 font-bold block text-xs sm:text-sm font-sans uppercase tracking-wider mb-1">
-                    {selectedLanguage === 'ta' ? 'முழுக் கணக்கு / வினா (Question Statement):' : 'Full Mathematical Problem / Question:'}
-                  </span>
-                  <p className="text-sm sm:text-base font-semibold leading-relaxed whitespace-pre-wrap">
-                    {activeLesson.board_content?.question || inputQuestion}
-                  </p>
-                </div>
+                {/* Two-Part Split Chalkboard Arena */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  
+                  {/* PART 1 (Left Side / 5 Columns): Question Statement, Given Data, Formula & Target Answer */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-amber-400/40 pb-2">
+                      <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
+                        {selectedLanguage === 'ta' ? 'பகுதி 1: கணக்கு & இலக்கு விடை' : 'Part 1: Problem & Target Answer'}
+                      </span>
+                    </div>
 
-                {/* Core Formula & Given Data Grid */}
-                {(activeLesson.board_content?.given_data || activeLesson.board_content?.core_formula) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {activeLesson.board_content?.given_data && (
-                      <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
-                        <span className="text-amber-300 font-bold block font-sans text-xs">
-                          {selectedLanguage === 'ta' ? 'கொடுக்கப்பட்ட விவரங்கள் (Given Data):' : 'Given Data:'}
-                        </span>
-                        <p className="mt-0.5 whitespace-pre-wrap">{activeLesson.board_content.given_data}</p>
-                      </div>
-                    )}
-                    {activeLesson.board_content?.core_formula && (
-                      <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
-                        <span className="text-amber-300 font-bold block font-sans text-xs">
-                          {selectedLanguage === 'ta' ? 'சூத்திரம் (Core Formula):' : 'Governing Formula:'}
-                        </span>
-                        <p className="mt-0.5 whitespace-pre-wrap">{activeLesson.board_content.core_formula}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step-by-Step Chalk Working */}
-                <div className="space-y-4 pt-2">
-                  {activeLesson.board_content?.steps?.map((step, idx) => {
-                    const isActive = isTeachingStarted && currentStepIndex === idx;
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => handleGoToStep(idx)}
-                        className={`p-3.5 rounded-xl transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-emerald-900/90 border-2 border-amber-400 shadow-md translate-x-1'
-                            : 'hover:bg-emerald-900/40 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="font-serif font-bold text-amber-300 shrink-0 text-sm sm:text-base underline decoration-amber-400/50">
-                            Step {step.step_number || idx + 1} :
-                          </span>
-                          <div className="space-y-1 flex-1">
-                            <p className="text-xs sm:text-sm font-sans font-medium text-slate-100">
-                              {step.title}
-                            </p>
-                            <p className="text-xs sm:text-sm font-mono font-bold text-white whitespace-pre-wrap">
-                              {step.work}
-                            </p>
-                            {/* Exam Marking Tip */}
-                            {step.marking_tip && (
-                              <p className="text-[11px] font-sans font-medium text-amber-200/90 pt-1 flex items-center gap-1">
-                                <Award className="h-3 w-3 text-amber-400 shrink-0" />
-                                <span>{step.marking_tip}</span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Framed Final Answer Box (Chalk Box) */}
-                {activeLesson.board_content?.final_answer && (
-                  <div className="mt-6 flex justify-end">
-                    <div className="inline-block p-4 rounded-2xl border-2 border-amber-400 bg-emerald-950/80 shadow-lg text-center min-w-[220px]">
-                      <p className="text-xs font-serif font-bold text-amber-300 tracking-wider">
-                        🎯 FINAL ANSWER:
-                      </p>
-                      <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
-                        {activeLesson.board_content.final_answer}
+                    {/* Question Statement Box */}
+                    <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-700/60 font-mono text-emerald-100 shadow-inner">
+                      <span className="text-amber-300 font-bold block text-xs sm:text-sm font-sans uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4 text-amber-400" />
+                        {selectedLanguage === 'ta' ? 'முழுக் கணக்கு / வினா (Problem Statement):' : 'Full Mathematical Problem / Question:'}
+                      </span>
+                      <p className="text-sm sm:text-base font-semibold leading-relaxed whitespace-pre-wrap">
+                        {activeLesson.board_content?.question || inputQuestion}
                       </p>
                     </div>
+
+                    {/* Given Data Box */}
+                    {activeLesson.board_content?.given_data && (
+                      <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                        <span className="text-amber-300 font-bold block font-sans text-xs mb-1">
+                          {selectedLanguage === 'ta' ? 'கொடுக்கப்பட்ட விவரங்கள் (Given Data):' : 'Given Data:'}
+                        </span>
+                        <p className="whitespace-pre-wrap leading-relaxed">{activeLesson.board_content.given_data}</p>
+                      </div>
+                    )}
+
+                    {/* Governing Formula Box - Strictly labeled Formula / ஃபார்முலா, NO archaic 'சூத்திரம்' */}
+                    {activeLesson.board_content?.core_formula && (
+                      <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-amber-400/50 text-xs sm:text-sm font-mono text-amber-100">
+                        <span className="text-amber-300 font-bold block font-sans text-xs mb-1 flex items-center gap-1">
+                          <Calculator className="h-3.5 w-3.5 text-amber-400" />
+                          {selectedLanguage === 'ta' ? 'ஃபார்முலா (Governing Formula):' : 'Governing Formula:'}
+                        </span>
+                        <p className="whitespace-pre-wrap font-bold leading-relaxed">{activeLesson.board_content.core_formula}</p>
+                      </div>
+                    )}
+
+                    {/* Target Answer / Result to be Proven Box (Gold Framed) */}
+                    {(activeLesson.board_content?.target_answer || activeLesson.board_content?.final_answer) && (
+                      <div className="p-4 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-950/40 text-amber-200 text-center shadow-lg space-y-1">
+                        <span className="text-xs font-serif font-extrabold uppercase tracking-wider text-amber-300 block">
+                          🎯 {selectedLanguage === 'ta' ? 'இலக்கு விடை / நிரூபிக்க வேண்டியது (Target to Prove):' : 'Target Answer / Result to Prove:'}
+                        </span>
+                        <p className="text-base sm:text-lg font-mono font-black text-white">
+                          {activeLesson.board_content.target_answer || activeLesson.board_content.final_answer}
+                        </p>
+                        <p className="text-[11px] font-sans text-emerald-200/80 pt-1">
+                          {selectedLanguage === 'ta' ? 'வலது பக்கத்தில் இந்த விடைக்கான முழு படிமுறை தீர்வு எழுதப்பட்டுள்ளது.' : 'See the complete step proof written on the right side.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* PART 2 (Right Side / 7 Columns): Hand-Written Style Step Proof + Detailed "How It Came" Explanation */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="flex items-center justify-between border-b border-amber-400/40 pb-2">
+                      <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
+                        {selectedLanguage === 'ta' ? 'பகுதி 2: கரும்பலகை படிமுறை தீர்வு & நிரூபணம்' : 'Part 2: Hand-Written Step Proof & Derivation'}
+                      </span>
+                      <span className="text-[11px] text-emerald-300 font-mono">
+                        {activeLesson.board_content?.steps?.length || 0} Steps
+                      </span>
+                    </div>
+
+                    {/* Step-by-Step Chalk Working */}
+                    <div className="space-y-4">
+                      {activeLesson.board_content?.steps?.map((step, idx) => {
+                        const isActive = isTeachingStarted && currentStepIndex === idx;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => handleGoToStep(idx)}
+                            className={`p-4 rounded-2xl transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-emerald-900/90 border-2 border-amber-400 shadow-xl translate-x-1'
+                                : 'bg-emerald-950/50 border border-emerald-800/60 hover:bg-emerald-900/40'
+                            }`}
+                          >
+                            <div className="space-y-2.5">
+                              {/* Step Title Header */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-serif font-bold text-amber-300 text-sm sm:text-base underline decoration-amber-400/50">
+                                  Step {step.step_number || idx + 1}: {step.title}
+                                </span>
+                                {step.marking_tip && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-amber-200/90 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-700/50">
+                                    <Award className="h-3 w-3 text-amber-400 shrink-0" />
+                                    {step.marking_tip}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Pure Handwritten Chalk Working (Equations) */}
+                              <div className="p-3 rounded-xl bg-black/40 border border-emerald-700/60 font-mono text-xs sm:text-sm font-bold text-white whitespace-pre-wrap leading-relaxed shadow-inner">
+                                {step.work}
+                              </div>
+
+                              {/* Written Explanation: "இது எப்படி வந்தது" (How this step came about) */}
+                              <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-700/50 text-xs sm:text-sm text-emerald-100 leading-relaxed font-sans space-y-1">
+                                <span className="text-amber-300 font-bold block text-xs flex items-center gap-1.5">
+                                  <Lightbulb className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                  {selectedLanguage === 'ta' ? 'இது எப்படி வந்தது (Explanation):' : 'How this step was derived:'}
+                                </span>
+                                <p className="text-emerald-100/95 font-medium leading-relaxed">
+                                  {step.how_it_came || (selectedLanguage === 'ta'
+                                    ? 'மேற்கண்ட சமன்பாட்டில் மாறிகளின் மதிப்புகளை ஃபார்முலாவில் பிரதியிட்டு சுருக்கும் போது இந்த படிநிலை பெறப்படுகிறது.'
+                                    : 'Substitute known values and simplify algebraically to arrive at this intermediate step.')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Final Verified Answer Box (Chalk Box) */}
+                    {activeLesson.board_content?.final_answer && (
+                      <div className="pt-2">
+                        <div className="p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-950/90 shadow-xl text-center">
+                          <p className="text-xs font-serif font-extrabold text-amber-300 tracking-wider">
+                            ✅ {selectedLanguage === 'ta' ? 'நிரூபிக்கப்பட்டது / இறுதி விடை (Final Verified Answer):' : 'FINAL VERIFIED ANSWER (Q.E.D.):'}
+                          </p>
+                          <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
+                            {activeLesson.board_content.final_answer}
+                          </p>
+                          {activeLesson.board_content.exam_presentation_tip && (
+                            <p className="text-xs font-sans text-amber-200/90 pt-1.5">
+                              💡 {activeLesson.board_content.exam_presentation_tip}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
                 {!isTeachingStarted && (

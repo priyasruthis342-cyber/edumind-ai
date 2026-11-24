@@ -20,40 +20,23 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 /**
- * Checks whether the extracted text is genuine legible text vs random OCR sensor noise (like 'Fs he (Q mo Rk G0 pe 2 cg <').
- * Supports English, Tamil, Hindi, Malayalam, Telugu, and Kannada.
+ * Checks whether the extracted text is genuine legible text vs empty noise.
+ * Accepts English, Tamil, Hindi, Malayalam, Telugu, Kannada, numbers, and math variables.
  */
 export function isLegibleAcademicText(text: string): boolean {
-  if (!text || text.trim().length < 5) return false;
-  
-  // If Indian language characters (Tamil, Hindi, Malayalam, Telugu, Kannada) are present in real words, it's valid!
-  if (/[\u0B80-\u0BFF\u0900-\u097F\u0D00-\u0D7F\u0C00-\u0C7F\u0C80-\u0CFF]/.test(text)) {
-    const indianCharCount = (text.match(/[\u0B80-\u0BFF\u0900-\u097F\u0D00-\u0D7F\u0C00-\u0C7F\u0C80-\u0CFF]/g) || []).length;
-    if (indianCharCount >= 5) return true;
-  }
+  if (!text || text.trim().length < 3) return false;
 
-  // If text contains genuine mathematical equations (e.g. x² + 5x + 6 = 0 or dy/dx = 2x)
-  if (/[a-zA-Z\d]\s*[=<>≤≥]\s*[-+]?[a-zA-Z\d]/.test(text)) {
+  // If Indian language characters (Tamil, Hindi, Malayalam, Telugu, Kannada) are present
+  if (/[\u0B80-\u0BFF\u0900-\u097F\u0D00-\u0D7F\u0C00-\u0C7F\u0C80-\u0CFF]/.test(text)) {
     return true;
   }
 
-  const words = text.split(/\s+/).filter((w) => /[a-zA-Z\u0B80-\u0BFF\u0900-\u097F\u0D00-\u0D7F\u0C00-\u0C7F\u0C80-\u0CFF]/.test(w));
-  if (words.length < 2) return false;
+  // If text contains alphanumeric characters, math variables, or equations
+  if (/[a-zA-Z0-9]/.test(text)) {
+    return true;
+  }
 
-  // Identify suspicious 1-2 letter non-standard fragments (e.g. 'cg', 'G0', '3_f', 'Ld', 'ANE')
-  const validTwoLetterWords = new Set([
-    'in', 'on', 'at', 'to', 'is', 'an', 'as', 'or', 'by', 'we', 'it', 'he', 'if', 'my', 'no', 'so',
-    'up', 'do', 'go', 'am', 'of', 'us', 'pi', 'bf', 'll', 'rr', 'lr', 'rl', 'dx', 'dy', 'dt', 'db',
-    'ok', 'cm', 'mm', 'km', 'kg', 'mg', 'ml', 'hz', 'ev', 'pa', 'na', 'ai', 'ml', 'ds', 'cs', 'it'
-  ]);
-  const junkWords = words.filter((w) => {
-    const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
-    return clean.length <= 2 && !validTwoLetterWords.has(clean);
-  });
-
-  // If over 40% of words are strange isolated 1-2 letter fragments, it's OCR sensor noise
-  if (junkWords.length / words.length > 0.40) return false;
-  return true;
+  return false;
 }
 
 /**
@@ -69,10 +52,8 @@ export function cleanOcrNoise(raw: string): string {
       if (!line) return false;
       // Discard lines that consist exclusively of punctuation or garbage symbols
       if (/^[;:*~^_`|\\/\-=+.,?!#@$%&()<>{}[\]'"]+$/.test(line)) return false;
-      // Discard lines that contain models explanations about blank images
+      // Discard lines that contain model explanations about blank images
       if (line.toLowerCase().includes('no text, notes, or diagrams are visible') || line.toLowerCase().includes('entirely blank')) return false;
-      // Discard tiny lines without any actual alphanumeric characters
-      if (line.length <= 2 && !/[a-zA-Z0-9\u0B80-\u0BFF\u0900-\u097F\u0D00-\u0D7F\u0C00-\u0C7F\u0C80-\u0CFF]/.test(line)) return false;
       return true;
     })
     .join('\n')
@@ -161,11 +142,11 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
     onProgress?.('Transcribing handwriting & text with Google Gemini Vision...');
     const rawVisionText = await withTimeout(
       extractImageWithGemini(optimizedBlob),
-      40000,
+      45000,
       'Gemini Vision OCR'
     );
     const cleanedVision = cleanOcrNoise(rawVisionText);
-    if (cleanedVision && cleanedVision.length >= 8 && isLegibleAcademicText(cleanedVision)) {
+    if (cleanedVision && cleanedVision.length >= 3) {
       return cleanMathFormatting(cleanedVision);
     }
   } catch (visionErr) {
@@ -178,11 +159,11 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
     const compactBlob = await compressAndDownscaleImage(file, 1200);
     const rawVisionText2 = await withTimeout(
       extractImageWithGemini(compactBlob),
-      35000,
+      40000,
       'Gemini Vision OCR Retry'
     );
     const cleanedVision2 = cleanOcrNoise(rawVisionText2);
-    if (cleanedVision2 && cleanedVision2.length >= 8 && isLegibleAcademicText(cleanedVision2)) {
+    if (cleanedVision2 && cleanedVision2.length >= 3) {
       return cleanMathFormatting(cleanedVision2);
     }
   } catch (retryErr) {

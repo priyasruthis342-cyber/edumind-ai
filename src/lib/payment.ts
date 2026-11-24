@@ -197,10 +197,43 @@ export async function createRazorpayOrder(amountPaise = PASS_AMOUNT_PAISE): Prom
   }
 }
 
+export interface RazorpayVerifyPayload extends RazorpaySuccessPayload {
+  mobile?: string;
+}
+
+/**
+ * Checks if a 10-digit mobile number has already paid ₹1 for today
+ */
+export async function checkPhonePaymentStatus(mobile: string): Promise<boolean> {
+  if (!mobile) return false;
+  const cleanMobile = mobile.replace(/\D/g, '').slice(-10);
+  if (cleanMobile.length !== 10) return false;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/payment/check-phone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: cleanMobile }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.paid && data.paymentId) {
+      savePaymentPass(data.paymentId, data.expiresAt, data.paidDate);
+      try {
+        localStorage.setItem('edumind_user_phone', cleanMobile);
+      } catch {}
+      return true;
+    }
+  } catch (err) {
+    console.warn('Phone payment check note:', err);
+  }
+  return false;
+}
+
 /**
  * Verifies live Razorpay payment signature with backend and receives midnight expiry
  */
-export async function verifyRazorpayPayment(payload: RazorpaySuccessPayload): Promise<{ verified: boolean; expiresAt?: number; paidDate?: string }> {
+export async function verifyRazorpayPayment(payload: RazorpayVerifyPayload): Promise<{ verified: boolean; expiresAt?: number; paidDate?: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/payment/verify`, {
       method: 'POST',
@@ -277,9 +310,12 @@ export async function startRazorpayCheckout({
     ...(order?.order_id ? { order_id: order.order_id } : {}),
     handler: async function (response: RazorpaySuccessPayload) {
       try {
-        const verifyResult = await verifyRazorpayPayment(response);
+        const verifyResult = await verifyRazorpayPayment({ ...response, mobile: userMobile });
         if (verifyResult.verified) {
           savePaymentPass(response.razorpay_payment_id, verifyResult.expiresAt, verifyResult.paidDate);
+          if (userMobile) {
+            try { localStorage.setItem('edumind_user_phone', userMobile.replace(/\D/g, '').slice(-10)); } catch {}
+          }
           onSuccess(response.razorpay_payment_id, verifyResult.expiresAt, verifyResult.paidDate);
         } else {
           // Fallback pass in case verification endpoint had temporary glitch
