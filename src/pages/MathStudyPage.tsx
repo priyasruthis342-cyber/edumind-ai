@@ -1,23 +1,17 @@
-import { useState, useRef, useEffect, useCallback, type DragEvent } from 'react';
+import { useState, useRef, useEffect, type DragEvent } from 'react';
 import {
-  Calculator, Sparkles, Volume2, VolumeX, Play, Pause, RotateCcw,
-  ArrowRight, ArrowLeft, CheckCircle2, Award, Camera, ImagePlus,
-  FileUp, Loader2, Send, HelpCircle, BookOpen, GraduationCap, Lightbulb,
-  Maximize2, Minimize2, Mic, MicOff, Download, ChevronDown, Check,
-  Radio, FileText, Image as ImageIcon, Sparkle
+  Calculator, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Award, Camera, ImagePlus,
+  FileUp, Loader2, Send, HelpCircle, BookOpen, Lightbulb,
+  Maximize2, Minimize2, Check, FileText, Image as ImageIcon, Sparkle
 } from 'lucide-react';
 import { useApp } from '@/context/useApp';
 import {
   fetchMathTeacherLesson,
   askMathTeacherDoubt,
-  fetchSynthesizedSpeech,
-  extractImageWithGemini,
   type MathTeacherLessonResponse,
-  type MathTeacherDoubtResponse,
-  type MathStep
+  type MathTeacherDoubtResponse
 } from '@/lib/geminiApi';
 import { extractTextFromFile } from '@/lib/extractText';
-import { cleanMathFormatting } from '@/lib/mathFormatter';
 import { ErrorNotice } from '@/components/ui';
 
 // Quick preset high-yield math problems for instant 1-click learning
@@ -44,19 +38,20 @@ const PRESET_MATH_QUESTIONS: Record<string, { label: string; question: string }[
 };
 
 const TEACHER_GREETINGS: Record<string, string> = {
-  ta: 'வணக்கம்! நான் உங்கள் கணித ஆசிரியை. வாருங்கள், கணிதத்தை பயமில்லாமல் மிக எளிமையாக ஒன்றாக படிப்போம்!',
+  ta: 'வணக்கம்! நான் உங்கள் கணித ஆசிரியர். உங்கள் கணித வினாவை கரும்பலகையில் படிப்படியாக எழுதி விளக்குகிறேன்.',
   hi: 'नमस्ते! मैं आपकी गणित अध्यापिका हूँ। आइए, गणित को बहुत ही आसान और रोचक तरीके से सीखते हैं!',
   te: 'నమస్కారం! నేను మీ గణిత ఉపాధ్యాయురాలిని. గణితాన్ని చాలా సులభంగా మరియు సరదాగా నేర్చుకుందాం!',
   ml: 'നമസ്കാരം! ഞാൻ നിങ്ങളുടെ ഗണിത അധ്യാപികയാണ്. നമുക്ക് കണക്ക് വളരെ ലളിതമായി മനസ്സിലാക്കാം!',
   kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಗಣಿತ ಶಿಕ್ಷಕಿ. ಬನ್ನಿ, ಗಣಿತವನ್ನು ಸುಲಭವಾಗಿ ಮತ್ತು ಸಂತೋಷದಿಂದ ಕಲಿಯೋಣ!',
-  en: "Hello! I'll teach you Math today. Let's start with your syllabus..."
+  en: "Hello! I'm your AI Math Teacher. Upload your math syllabus or question, and I'll solve it step-by-step on the chalkboard."
 };
 
 export function MathStudyPage() {
-  const { language: globalLanguage, setLanguage, t } = useApp();
+  const { language: globalLanguage, setLanguage } = useApp();
   const [selectedLanguage, setSelectedLanguage] = useState<string>(globalLanguage || 'en');
   const [inputQuestion, setInputQuestion] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedBase64, setSelectedBase64] = useState<string | null>(null);
   const [activeLesson, setActiveLesson] = useState<MathTeacherLessonResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,27 +60,12 @@ export function MathStudyPage() {
   const [isTeachingStarted, setIsTeachingStarted] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Dynamic Teacher Speech Bubble Message
+  // Teacher chalkboard status / bubble message
   const [teacherBubbleText, setTeacherBubbleText] = useState(
     TEACHER_GREETINGS[selectedLanguage] || TEACHER_GREETINGS.en
   );
 
-  // Voice Audio Playback state
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [loadingAudio, setLoadingAudio] = useState(false);
-  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(45);
-  const [isMuted, setIsMuted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Interactive Live Microphone Voice (Two-Way Conversation)
-  const [isListening, setIsListening] = useState(false);
-  const [speechTranscript, setSpeechTranscript] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
-
-  // Doubt solving state
+  // Doubt solving state (Text-only: NO voice/mic, NO speech)
   const [userDoubtInput, setUserDoubtInput] = useState('');
   const [activeDoubt, setActiveDoubt] = useState<MathTeacherDoubtResponse | null>(null);
   const [askingDoubt, setAskingDoubt] = useState(false);
@@ -111,181 +91,31 @@ export function MathStudyPage() {
     }
   }, [globalLanguage]);
 
-  // Cleanup audio URLs
-  useEffect(() => {
-    return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
-      }
-    };
-  }, [audioUrl]);
-
-  // Audio timer progression
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isPlayingAudio) {
-      interval = setInterval(() => {
-        if (audioRef.current) {
-          setAudioCurrentTime(Math.floor(audioRef.current.currentTime));
-          if (audioRef.current.duration) {
-            setAudioDuration(Math.floor(audioRef.current.duration));
-          }
-        } else {
-          setAudioCurrentTime((prev) => (prev >= audioDuration ? 0 : prev + 1));
-        }
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isPlayingAudio, audioDuration]);
-
-  // Initialize Speech Recognition for Live Two-Way Voice
-  const startVoiceListening = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Voice microphone recognition is supported in Chrome, Edge, and Android browsers. You can also type your doubt below.');
-      return;
-    }
-
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setSpeechTranscript('');
+  // Handle file selection (safely stores file and converts images to base64 without injecting dummy text)
+  const handleFileSelected = (file: File) => {
+    setSelectedFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedBase64(reader.result as string);
       };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        const current = event.resultIndex;
-        const transcriptText = event.results[current][0].transcript;
-        setSpeechTranscript(transcriptText);
-
-        // If the user says "start" or "yes" or "ஆரம்பிக்கலாம்" during ready prompt
-        const clean = transcriptText.toLowerCase();
-        if (!isTeachingStarted && (clean.includes('start') || clean.includes('yes') || clean.includes('சரி') || clean.includes('ஆரம்பிக்கலாம்') || clean.includes('shuru'))) {
-          handleStartTeaching();
-        }
-      };
-
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (e) {
-      console.warn('Speech recognition init note:', e);
-      setIsListening(false);
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedBase64(null);
     }
-  }, [selectedLanguage, isTeachingStarted]);
-
-  const stopVoiceListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-    }
-    setIsListening(false);
-  }, []);
-
-  // Speak teacher dialogue using Web Speech API or synthesized audio
-  const speakTeacherText = useCallback(async (textToSpeak: string) => {
-    if (!textToSpeak) return;
-
-    // Clean text to avoid speech stuttering on LaTeX or code tokens
-    const sanitizedSpeech = textToSpeak
-      .replace(/\\\(|\\\)|\\\[|\\\]|\$+/g, ' ')
-      .replace(/\\[a-zA-Z]+/g, ' ')
-      .replace(/[\{\}\^_\*\#\`\<\>]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    setTeacherBubbleText(textToSpeak);
-
-    // Stop existing audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-
-    try {
-      setLoadingAudio(true);
-      const audioBlob = await fetchSynthesizedSpeech(sanitizedSpeech, selectedLanguage, 'story');
-      const url = URL.createObjectURL(audioBlob);
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      setAudioUrl(url);
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.muted = isMuted;
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        // When teacher finishes speaking, prompt for doubts
-        if (isTeachingStarted) {
-          setTeacherBubbleText(
-            selectedLanguage === 'ta'
-              ? 'ஏதாவது சந்தேகம் இருக்கா? கேளுங்க. நான் ஈஸியா சொல்லித்தரேன்!'
-              : 'Do you have any doubts? Ask me if you do, and we will solve it together!'
-          );
-        }
-      };
-      audio.onerror = () => setIsPlayingAudio(false);
-
-      await audio.play();
-      setIsPlayingAudio(true);
-    } catch {
-      // Fallback: Web Speech API with Female voice
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(sanitizedSpeech);
-        utter.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
-        const voices = window.speechSynthesis.getVoices();
-        const langPrefix = utter.lang.split('-')[0];
-        const femaleVoice = voices.find(v =>
-          v.lang.startsWith(langPrefix) && (
-            v.name.toLowerCase().includes('female') ||
-            v.name.toLowerCase().includes('pallavi') ||
-            v.name.toLowerCase().includes('zira') ||
-            v.name.toLowerCase().includes('jenny') ||
-            v.name.toLowerCase().includes('natural') ||
-            v.name.toLowerCase().includes('samantha')
-          )
-        ) || voices.find(v => v.lang.startsWith(langPrefix));
-        if (femaleVoice) utter.voice = femaleVoice;
-        utter.rate = 0.95;
-        utter.onend = () => setIsPlayingAudio(false);
-        window.speechSynthesis.speak(utter);
-        setIsPlayingAudio(true);
-      }
-    } finally {
-      setLoadingAudio(false);
-    }
-  }, [selectedLanguage, audioUrl, isMuted, isTeachingStarted]);
+  };
 
   // Main Solve / Analyze Handler
   const handleAnalyzeSyllabus = async (overrideText?: string, base64Override?: string) => {
-    const questionText = overrideText || inputQuestion.trim();
-    if (!questionText && !base64Override && !selectedFile) {
-      setError('Please upload a Maths syllabus/question PDF or photo, or type a math problem.');
+    const questionText = overrideText !== undefined ? overrideText : inputQuestion.trim();
+    const base64ToSend = base64Override || selectedBase64;
+
+    if (!questionText && !base64ToSend && !selectedFile) {
+      setError(
+        selectedLanguage === 'ta'
+          ? 'தயவுசெய்து ஒரு கணித வினா / பாடத்திட்டம் புகைப்படம் அல்லது PDF-ஐ பதிவேற்றவும் அல்லது வினாவை தட்டச்சு செய்யவும்.'
+          : 'Please upload a Maths syllabus/question PDF or photo, or type a math problem.'
+      );
       return;
     }
 
@@ -295,59 +125,55 @@ export function MathStudyPage() {
     setCurrentStepIndex(0);
     setActiveDoubt(null);
 
-    // Stop playing audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-    }
-
     try {
       let textToSend = questionText;
-      let base64ImageToSend = base64Override;
+      let imageBase64ToSend = base64ToSend || undefined;
 
-      // If a file was selected but not extracted yet
-      if (selectedFile && !base64Override) {
-        setUploadStatus('Reading and analyzing mathematics syllabus...');
-        if (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')) {
-          const res = await extractTextFromFile(selectedFile, (s) => setUploadStatus(s));
-          if (res.text && res.text.trim()) {
-            textToSend = res.text.trim();
-          }
-        } else if (selectedFile.type.startsWith('image/')) {
-          try {
-            const extracted = await extractImageWithGemini(selectedFile);
-            if (extracted && extracted.trim()) {
-              textToSend = extracted.trim();
-            }
-          } catch {
-            // Read base64
-            const reader = new FileReader();
-            base64ImageToSend = await new Promise<string>((res) => {
-              reader.onload = () => res(reader.result as string);
-              reader.readAsDataURL(selectedFile);
-            });
-          }
+      // If a PDF file was selected, extract its text
+      if (selectedFile && (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf'))) {
+        setUploadStatus(
+          selectedLanguage === 'ta'
+            ? 'கணித PDF ஆவணத்திலிருந்து பாடத்திட்டத்தை பகுப்பாய்வு செய்கிறது...'
+            : 'Reading and analyzing mathematics PDF syllabus...'
+        );
+        const res = await extractTextFromFile(selectedFile, (s) => setUploadStatus(s));
+        if (res.text && res.text.trim()) {
+          textToSend = res.text.trim();
         }
+      } else if (selectedFile && selectedFile.type.startsWith('image/') && !imageBase64ToSend) {
+        setUploadStatus(
+          selectedLanguage === 'ta'
+            ? 'கணிதப் புகைப்படத்தைப் படிக்கிறது...'
+            : 'Reading math photo...'
+        );
+        const reader = new FileReader();
+        imageBase64ToSend = await new Promise<string>((res) => {
+          reader.onload = () => res(reader.result as string);
+          reader.readAsDataURL(selectedFile);
+        });
       }
 
-      setUploadStatus('AI Math Teacher solving problem on blackboard...');
+      setUploadStatus(
+        selectedLanguage === 'ta'
+          ? 'AI ஆசிரியர் கரும்பலகையில் படிப்படியாக தீர்வு எழுதுகிறார்...'
+          : 'AI Math Teacher solving problem step-by-step on chalkboard...'
+      );
+
       const lesson = await fetchMathTeacherLesson(
-        textToSend || 'Solve: x² + 5x + 6 = 0',
+        textToSend,
         selectedLanguage,
-        base64ImageToSend
+        imageBase64ToSend
       );
 
       setActiveLesson(lesson);
 
-      // AI Teacher greeting and ready pause gate
       const readyGreeting = lesson.ready_prompt || lesson.greeting ||
         (selectedLanguage === 'ta'
-          ? 'வணக்கம்! நான் உங்கள் கணித ஆசிரியை. கரும்பலகையில கேள்வியும் ஃபார்முலாவும் எழுதியாச்சு. பாடத்தை ஆரம்பிக்கலாமா?'
-          : 'Hello! I have written the question, formula, and steps on the chalkboard! Shall we start?');
+          ? 'கரும்பலகையில் வினாவும், ஃபார்முலாவும், படிமுறை தீர்வுகளும் தெளிவாக எழுதப்பட்டுள்ளது!'
+          : 'I have written the complete problem, governing formula, and hand-written step-by-step proof on the chalkboard!');
 
       setTeacherBubbleText(readyGreeting);
 
-      // Smooth scroll to blackboard (visual focus first - no auto-forced audio)
       setTimeout(() => {
         const boardEl = document.getElementById('chalkboard-arena');
         if (boardEl) boardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -372,13 +198,12 @@ export function MathStudyPage() {
   const handleGoToStep = (index: number) => {
     const steps = activeLesson?.board_content?.steps || [];
     if (index < 0 || index >= steps.length) return;
-
     setCurrentStepIndex(index);
   };
 
-  // Two-Way Interactive Doubt Solving Handler
+  // Doubt Solving Handler (Text only: NO audio/speech)
   const handleAskDoubt = async (customDoubt?: string) => {
-    const doubtToSolve = customDoubt || speechTranscript || userDoubtInput.trim();
+    const doubtToSolve = (customDoubt || userDoubtInput).trim();
     if (!doubtToSolve) return;
 
     setAskingDoubt(true);
@@ -393,10 +218,6 @@ export function MathStudyPage() {
 
       setActiveDoubt(resp);
       setUserDoubtInput('');
-      setSpeechTranscript('');
-
-      const replySpeech = `${resp.teacher_reply} ${resp.understanding_check}`;
-      void speakTeacherText(replySpeech);
     } catch (err) {
       console.warn('Doubt handling note:', err);
     } finally {
@@ -418,9 +239,7 @@ export function MathStudyPage() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      setInputQuestion(`Math Problem File: ${file.name}`);
+      handleFileSelected(e.dataTransfer.files[0]);
     }
   };
 
@@ -440,7 +259,7 @@ export function MathStudyPage() {
     <div className="space-y-8 pb-16 animate-in fade-in duration-300">
 
       {/* ─────────────────────────────────────────────────────────────
-          1. HERO BANNER — Matches media_1795443569554_585389cd.jpg
+          1. HERO BANNER
       ───────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-100 border border-blue-200/60 p-6 sm:p-8 shadow-sm">
         {/* Floating math background symbols */}
@@ -639,9 +458,7 @@ export function MathStudyPage() {
             ref={fileInputRef}
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                setSelectedFile(file);
-                setInputQuestion(`Uploaded Math File: ${file.name}`);
+                handleFileSelected(e.target.files[0]);
               }
             }}
             accept=".pdf,image/*,.txt"
@@ -652,9 +469,7 @@ export function MathStudyPage() {
             ref={cameraInputRef}
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                setSelectedFile(file);
-                setInputQuestion(`Camera Photo: ${file.name}`);
+                handleFileSelected(e.target.files[0]);
               }
             }}
             accept="image/*"
@@ -692,10 +507,30 @@ export function MathStudyPage() {
           </button>
 
           <p className="text-[11px] text-center text-slate-500 flex items-center justify-center gap-1">
-            <span>⚡</span> It will only take a few seconds...
+            <span>⚡</span> High-speed step derivation on chalkboard...
           </p>
         </div>
       </div>
+
+      {/* Selected file indicator badge */}
+      {selectedFile && (
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>Selected File: <strong className="font-mono">{selectedFile.name}</strong></span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFile(null);
+              setSelectedBase64(null);
+            }}
+            className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
+          >
+            Clear File
+          </button>
+        </div>
+      )}
 
       {/* Upload progress & error notice */}
       {uploadStatus && (
@@ -725,6 +560,7 @@ export function MathStudyPage() {
             onClick={() => {
               setInputQuestion(preset.question);
               setSelectedFile(null);
+              setSelectedBase64(null);
               void handleAnalyzeSyllabus(preset.question);
             }}
             className="py-1 px-3 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-300 font-medium whitespace-nowrap transition-colors cursor-pointer"
@@ -735,11 +571,11 @@ export function MathStudyPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          3. LEARNING VIEW ARENA — AI Teacher (Left) + Blackboard (Right)
+          3. LEARNING VIEW ARENA — Chalkboard Arena
       ───────────────────────────────────────────────────────────── */}
       <div id="chalkboard-arena" className="w-full max-w-5xl mx-auto space-y-6">
 
-        {/* ────── TOP AI TEACHER VOICE BANNER & GREETING ────── */}
+        {/* ────── TOP AI TEACHER BANNER & WRITTEN GUIDANCE ────── */}
         <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200/90 shadow-lg p-5 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
@@ -754,15 +590,15 @@ export function MathStudyPage() {
                 </span>
               </div>
               <p className="text-xs text-purple-700 font-medium mt-0.5">
-                {selectedLanguage === 'ta' ? 'இயல்பான பேச்சுத் தமிழில் கற்பித்தல்' : 'Conversational Step-by-Step Spoken Walkthrough'}
+                {selectedLanguage === 'ta' ? 'கரும்பலகை படிமுறை தீர்வு (Chalkboard Written Only)' : 'Chalkboard Written Step-by-Step Derivation'}
               </p>
             </div>
           </div>
 
-          {/* Teacher Speech Bubble */}
+          {/* Teacher Guidance Bubble (Written on board - No voice/TTS) */}
           <div className="relative flex-1 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-3.5 text-xs sm:text-sm font-medium text-purple-950 leading-relaxed shadow-inner w-full">
             <div className="flex items-start gap-2">
-              <Volume2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5 animate-pulse" />
+              <BookOpen className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
               <p className="line-clamp-3 sm:line-clamp-none">{teacherBubbleText}</p>
             </div>
           </div>
@@ -776,8 +612,8 @@ export function MathStudyPage() {
                   onClick={handleStartTeaching}
                   className="py-2.5 px-5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer active:scale-95 transition-transform flex items-center gap-1.5"
                 >
-                  <Play className="h-3.5 w-3.5 fill-white" />
-                  <span>{selectedLanguage === 'ta' ? 'பாடத்தை தொடங்கு' : 'Start Lesson'}</span>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{selectedLanguage === 'ta' ? 'படிநிலைகளை காண்க' : 'View Steps'}</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-1 bg-purple-100/70 p-1 rounded-2xl">
@@ -807,409 +643,282 @@ export function MathStudyPage() {
             </div>
           )}
         </div>
-          <div
-            ref={chalkboardRef}
-            className={`relative overflow-hidden rounded-3xl bg-[#143224] text-white shadow-2xl transition-all ${
-              isFullscreen
-                ? 'fixed inset-0 z-50 rounded-none p-6 md:p-10 flex flex-col justify-between'
-                : 'border-[14px] sm:border-[18px] border-[#844b20] p-6 sm:p-8 min-h-[580px]'
-            }`}
-            style={{
-              boxShadow: 'inset 0 0 50px rgba(0,0,0,0.6), 0 20px 30px rgba(0,0,0,0.35)',
-              backgroundImage: 'radial-gradient(circle at 50% 50%, #1e4533 0%, #10291e 100%)'
-            }}
-          >
-            {/* Top Blackboard Chalk Details */}
-            {!activeLesson ? (
-              <div className="flex flex-col items-center justify-center py-12 px-4 text-center min-h-[460px] space-y-6">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-950/80 border-2 border-dashed border-amber-400/60 flex items-center justify-center text-amber-300 text-3xl shadow-inner">
-                  📐
-                </div>
-                
-                <div className="space-y-2 max-w-md">
-                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-amber-300 tracking-wide">
-                    {selectedLanguage === 'ta' ? 'கரும்பலகை தயார்' : 'Chalkboard Ready'}
-                  </h3>
-                  <p className="text-xs sm:text-sm font-sans text-emerald-100/90 leading-relaxed">
-                    {selectedLanguage === 'ta'
-                      ? 'படி 2-ல் உங்கள் கணிதப் பாடத்திட்டம் அல்லது வினாத்தாளை பதிவேற்றிவிட்டு "Analyze Now" பொத்தானை அழுத்தவும். உங்கள் AI ஆசிரியை இங்கு முழு கணக்கையும் படிப்படியாக எழுதி விளக்குவார்!'
-                      : 'Upload your Maths syllabus or question in Step 2 above and click "Analyze Now". Your AI Teacher will solve and write the step-by-step solution here!'}
-                  </p>
-                </div>
 
-                {/* Chalk decorative guides */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg pt-2 text-left">
-                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
-                    <span className="text-amber-400 font-bold font-serif text-xs block">1. Language</span>
-                    <span className="text-[11px] text-slate-200">English, தமிழ் & more</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
-                    <span className="text-amber-400 font-bold font-serif text-xs block">2. Upload</span>
-                    <span className="text-[11px] text-slate-200">PDF, Photo or Presets</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
-                    <span className="text-amber-400 font-bold font-serif text-xs block">3. Step-by-Step</span>
-                    <span className="text-[11px] text-slate-200">Spoken voice + Board</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-center gap-2 text-xs font-mono text-amber-300/80">
-                  <Sparkles className="h-4 w-4" />
-                  <span>Ready for your math syllabus</span>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-
-                {/* Chalkboard Topic Header in Bright Yellow Chalk */}
-                <div className="text-center border-b border-emerald-800/60 pb-4">
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-serif tracking-wide drop-shadow-md">
-                    {activeLesson.detected_topic || 'Mathematics Lesson'}
-                  </h2>
-                  <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
-                </div>
-
-                {/* Two-Part Split Chalkboard Arena */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  
-                  {/* PART 1 (Left Side / 5 Columns): Question Statement, Given Data, Formula & Target Answer */}
-                  <div className="lg:col-span-5 space-y-4">
-                    <div className="flex items-center gap-2 border-b border-amber-400/40 pb-2">
-                      <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
-                        {selectedLanguage === 'ta' ? 'பகுதி 1: கணக்கு & இலக்கு விடை' : 'Part 1: Problem & Target Answer'}
-                      </span>
-                    </div>
-
-                    {/* Question Statement Box */}
-                    <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-700/60 font-mono text-emerald-100 shadow-inner">
-                      <span className="text-amber-300 font-bold block text-xs sm:text-sm font-sans uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        <BookOpen className="h-4 w-4 text-amber-400" />
-                        {selectedLanguage === 'ta' ? 'முழுக் கணக்கு / வினா (Problem Statement):' : 'Full Mathematical Problem / Question:'}
-                      </span>
-                      <p className="text-sm sm:text-base font-semibold leading-relaxed whitespace-pre-wrap">
-                        {activeLesson.board_content?.question || inputQuestion}
-                      </p>
-                    </div>
-
-                    {/* Given Data Box */}
-                    {activeLesson.board_content?.given_data && (
-                      <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
-                        <span className="text-amber-300 font-bold block font-sans text-xs mb-1">
-                          {selectedLanguage === 'ta' ? 'கொடுக்கப்பட்ட விவரங்கள் (Given Data):' : 'Given Data:'}
-                        </span>
-                        <p className="whitespace-pre-wrap leading-relaxed">{activeLesson.board_content.given_data}</p>
-                      </div>
-                    )}
-
-                    {/* Governing Formula Box - Strictly labeled Formula / ஃபார்முலா, NO archaic 'சூத்திரம்' */}
-                    {activeLesson.board_content?.core_formula && (
-                      <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-amber-400/50 text-xs sm:text-sm font-mono text-amber-100">
-                        <span className="text-amber-300 font-bold block font-sans text-xs mb-1 flex items-center gap-1">
-                          <Calculator className="h-3.5 w-3.5 text-amber-400" />
-                          {selectedLanguage === 'ta' ? 'ஃபார்முலா (Governing Formula):' : 'Governing Formula:'}
-                        </span>
-                        <p className="whitespace-pre-wrap font-bold leading-relaxed">{activeLesson.board_content.core_formula}</p>
-                      </div>
-                    )}
-
-                    {/* Target Answer / Result to be Proven Box (Gold Framed) */}
-                    {(activeLesson.board_content?.target_answer || activeLesson.board_content?.final_answer) && (
-                      <div className="p-4 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-950/40 text-amber-200 text-center shadow-lg space-y-1">
-                        <span className="text-xs font-serif font-extrabold uppercase tracking-wider text-amber-300 block">
-                          🎯 {selectedLanguage === 'ta' ? 'இலக்கு விடை / நிரூபிக்க வேண்டியது (Target to Prove):' : 'Target Answer / Result to Prove:'}
-                        </span>
-                        <p className="text-base sm:text-lg font-mono font-black text-white">
-                          {activeLesson.board_content.target_answer || activeLesson.board_content.final_answer}
-                        </p>
-                        <p className="text-[11px] font-sans text-emerald-200/80 pt-1">
-                          {selectedLanguage === 'ta' ? 'வலது பக்கத்தில் இந்த விடைக்கான முழு படிமுறை தீர்வு எழுதப்பட்டுள்ளது.' : 'See the complete step proof written on the right side.'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* PART 2 (Right Side / 7 Columns): Hand-Written Style Step Proof + Detailed "How It Came" Explanation */}
-                  <div className="lg:col-span-7 space-y-4">
-                    <div className="flex items-center justify-between border-b border-amber-400/40 pb-2">
-                      <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
-                        {selectedLanguage === 'ta' ? 'பகுதி 2: கரும்பலகை படிமுறை தீர்வு & நிரூபணம்' : 'Part 2: Hand-Written Step Proof & Derivation'}
-                      </span>
-                      <span className="text-[11px] text-emerald-300 font-mono">
-                        {activeLesson.board_content?.steps?.length || 0} Steps
-                      </span>
-                    </div>
-
-                    {/* Step-by-Step Chalk Working */}
-                    <div className="space-y-4">
-                      {activeLesson.board_content?.steps?.map((step, idx) => {
-                        const isActive = isTeachingStarted && currentStepIndex === idx;
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => handleGoToStep(idx)}
-                            className={`p-4 rounded-2xl transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-emerald-900/90 border-2 border-amber-400 shadow-xl translate-x-1'
-                                : 'bg-emerald-950/50 border border-emerald-800/60 hover:bg-emerald-900/40'
-                            }`}
-                          >
-                            <div className="space-y-2.5">
-                              {/* Step Title Header */}
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-serif font-bold text-amber-300 text-sm sm:text-base underline decoration-amber-400/50">
-                                  Step {step.step_number || idx + 1}: {step.title}
-                                </span>
-                                {step.marking_tip && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-amber-200/90 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-700/50">
-                                    <Award className="h-3 w-3 text-amber-400 shrink-0" />
-                                    {step.marking_tip}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Pure Handwritten Chalk Working (Equations) */}
-                              <div className="p-3 rounded-xl bg-black/40 border border-emerald-700/60 font-mono text-xs sm:text-sm font-bold text-white whitespace-pre-wrap leading-relaxed shadow-inner">
-                                {step.work}
-                              </div>
-
-                              {/* Written Explanation: "இது எப்படி வந்தது" (How this step came about) */}
-                              <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-700/50 text-xs sm:text-sm text-emerald-100 leading-relaxed font-sans space-y-1">
-                                <span className="text-amber-300 font-bold block text-xs flex items-center gap-1.5">
-                                  <Lightbulb className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                                  {selectedLanguage === 'ta' ? 'இது எப்படி வந்தது (Explanation):' : 'How this step was derived:'}
-                                </span>
-                                <p className="text-emerald-100/95 font-medium leading-relaxed">
-                                  {step.how_it_came || (selectedLanguage === 'ta'
-                                    ? 'மேற்கண்ட சமன்பாட்டில் மாறிகளின் மதிப்புகளை ஃபார்முலாவில் பிரதியிட்டு சுருக்கும் போது இந்த படிநிலை பெறப்படுகிறது.'
-                                    : 'Substitute known values and simplify algebraically to arrive at this intermediate step.')}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Final Verified Answer Box (Chalk Box) */}
-                    {activeLesson.board_content?.final_answer && (
-                      <div className="pt-2">
-                        <div className="p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-950/90 shadow-xl text-center">
-                          <p className="text-xs font-serif font-extrabold text-amber-300 tracking-wider">
-                            ✅ {selectedLanguage === 'ta' ? 'நிரூபிக்கப்பட்டது / இறுதி விடை (Final Verified Answer):' : 'FINAL VERIFIED ANSWER (Q.E.D.):'}
-                          </p>
-                          <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
-                            {activeLesson.board_content.final_answer}
-                          </p>
-                          {activeLesson.board_content.exam_presentation_tip && (
-                            <p className="text-xs font-sans text-amber-200/90 pt-1.5">
-                              💡 {activeLesson.board_content.exam_presentation_tip}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
-                {!isTeachingStarted && (
-                  <div className="mt-4 p-4 rounded-2xl bg-amber-950/70 border border-amber-500/80 text-center space-y-3 animate-bounce-slow">
-                    <p className="text-sm sm:text-base font-bold text-amber-200">
-                      ✨ {activeLesson.ready_prompt || 'பாடத்தை ஆரம்பிக்கலாமா? (Shall we start?)'}
-                    </p>
-                    <div className="flex items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleStartTeaching}
-                        className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-transform"
-                      >
-                        🚀 Yes, Start Lesson! (ஆரம்பிக்கலாம்)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => startVoiceListening()}
-                        className="py-2.5 px-4 rounded-xl bg-emerald-900 border border-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Mic className="h-3.5 w-3.5" />
-                        <span>Say &ldquo;Yes&rdquo;</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Bottom Chalkboard Audio Controller Bar — Exact Match to Image */}
-            <div className="mt-8 pt-4 border-t border-emerald-800/60 flex items-center justify-between gap-3 text-xs">
-              {/* Play / Pause Button in Purple Circle */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isPlayingAudio && audioRef.current) {
-                    audioRef.current.pause();
-                    setIsPlayingAudio(false);
-                  } else if (audioUrl && audioRef.current) {
-                    void audioRef.current.play();
-                    setIsPlayingAudio(true);
-                  } else {
-                    const speech = activeLesson?.spoken_audio_script || activeLesson?.teacher_dialogue || teacherBubbleText;
-                    void speakTeacherText(speech);
-                  }
-                }}
-                disabled={loadingAudio}
-                className="w-10 h-10 rounded-full bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center shadow-md cursor-pointer shrink-0 active:scale-90 transition-transform"
-              >
-                {loadingAudio ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isPlayingAudio ? (
-                  <Pause className="h-4 w-4 fill-white" />
-                ) : (
-                  <Play className="h-4 w-4 fill-white ml-0.5" />
-                )}
-              </button>
-
-              {/* Time Tracker */}
-              <span className="font-mono text-[11px] text-emerald-200 shrink-0">
-                {String(Math.floor(audioCurrentTime / 60)).padStart(2, '0')}:
-                {String(audioCurrentTime % 60).padStart(2, '0')} / 00:45
-              </span>
-
-              {/* Scrubber slider */}
-              <div className="flex-1 max-w-md bg-emerald-950 h-2 rounded-full overflow-hidden relative cursor-pointer">
-                <div
-                  style={{ width: `${Math.min(100, (audioCurrentTime / (audioDuration || 45)) * 100)}%` }}
-                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 rounded-full transition-all duration-300"
-                />
-              </div>
-
-              {/* Volume & Fullscreen Actions (Download Button Removed) */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !isMuted;
-                    setIsMuted(next);
-                    if (audioRef.current) audioRef.current.muted = next;
-                  }}
-                  className="p-1.5 text-emerald-300 hover:text-white cursor-pointer"
-                  title="Toggle Mute"
-                >
-                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  className="p-1.5 text-emerald-300 hover:text-white cursor-pointer"
-                  title="Fullscreen Chalkboard"
-                >
-                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
+        {/* ────── TWO-PART CLASSROOM CHALKBOARD ARENA ────── */}
+        <div
+          ref={chalkboardRef}
+          className={`relative overflow-hidden rounded-3xl bg-[#143224] text-white shadow-2xl transition-all ${
+            isFullscreen
+              ? 'fixed inset-0 z-50 rounded-none p-6 md:p-10 flex flex-col justify-between overflow-y-auto'
+              : 'border-[14px] sm:border-[18px] border-[#844b20] p-6 sm:p-8 min-h-[580px]'
+          }`}
+          style={{
+            boxShadow: 'inset 0 0 50px rgba(0,0,0,0.6), 0 20px 30px rgba(0,0,0,0.35)',
+            backgroundImage: 'radial-gradient(circle at 50% 50%, #1e4533 0%, #10291e 100%)'
+          }}
+        >
+          {/* Top-Right Fullscreen Toggle */}
+          <div className="absolute top-3 right-3 z-20">
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-2 rounded-xl bg-black/40 hover:bg-black/70 text-emerald-300 hover:text-white border border-emerald-700/50 cursor-pointer transition-colors"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Chalkboard'}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
           </div>
 
-        {/* ────── INTERACTIVE DOUBT RESOLUTION & MIC BAR (BELOW BLACKBOARD) ────── */}
+          {!activeLesson ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center min-h-[460px] space-y-6">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-950/80 border-2 border-dashed border-amber-400/60 flex items-center justify-center text-amber-300 text-3xl shadow-inner">
+                📐
+              </div>
+
+              <div className="space-y-2 max-w-md">
+                <h3 className="text-xl sm:text-2xl font-serif font-bold text-amber-300 tracking-wide">
+                  {selectedLanguage === 'ta' ? 'கரும்பலகை தயார்' : 'Chalkboard Ready'}
+                </h3>
+                <p className="text-xs sm:text-sm font-sans text-emerald-100/90 leading-relaxed">
+                  {selectedLanguage === 'ta'
+                    ? 'படி 2-ல் உங்கள் கணிதப் பாடத்திட்டம் அல்லது வினாத்தாளை பதிவேற்றிவிட்டு "Analyze Now" பொத்தானை அழுத்தவும். உங்கள் AI ஆசிரியர் இங்கு முழு கணக்கையும் படிப்படியாக எழுதி விளக்குவார்!'
+                    : 'Upload your Maths syllabus or question in Step 2 above and click "Analyze Now". Your AI Teacher will solve and write the step-by-step solution here!'}
+                </p>
+              </div>
+
+              {/* Chalk decorative guides */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg pt-2 text-left">
+                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                  <span className="text-amber-400 font-bold font-serif text-xs block">1. Language</span>
+                  <span className="text-[11px] text-slate-200">English, தமிழ் & more</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                  <span className="text-amber-400 font-bold font-serif text-xs block">2. Upload</span>
+                  <span className="text-[11px] text-slate-200">PDF, Photo or Presets</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/50">
+                  <span className="text-amber-400 font-bold font-serif text-xs block">3. Step-by-Step</span>
+                  <span className="text-[11px] text-slate-200">Full Derivation on Board</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2 text-xs font-mono text-amber-300/80">
+                <Sparkles className="h-4 w-4" />
+                <span>Ready for your math syllabus</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+
+              {/* Chalkboard Topic Header in Bright Yellow Chalk */}
+              <div className="text-center border-b border-emerald-800/60 pb-4">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-serif tracking-wide drop-shadow-md">
+                  {activeLesson.detected_topic || 'Mathematics Lesson'}
+                </h2>
+                <div className="h-0.5 w-32 bg-amber-300/60 mx-auto mt-1 rounded-full"></div>
+              </div>
+
+              {/* Two-Part Split Chalkboard Arena */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                {/* PART 1 (Left Side / 5 Columns): Question Statement, Given Data, Formula & Target Answer */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-amber-400/40 pb-2">
+                    <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
+                      {selectedLanguage === 'ta' ? 'பகுதி 1: கணக்கு & இலக்கு விடை' : 'Part 1: Problem & Target Answer'}
+                    </span>
+                  </div>
+
+                  {/* Question Statement Box */}
+                  <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-700/60 font-mono text-emerald-100 shadow-inner">
+                    <span className="text-amber-300 font-bold block text-xs sm:text-sm font-sans uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <BookOpen className="h-4 w-4 text-amber-400" />
+                      {selectedLanguage === 'ta' ? 'முழுக் கணக்கு / வினா (Problem Statement):' : 'Full Mathematical Problem / Question:'}
+                    </span>
+                    <p className="text-sm sm:text-base font-semibold leading-relaxed whitespace-pre-wrap">
+                      {activeLesson.board_content?.question || inputQuestion}
+                    </p>
+                  </div>
+
+                  {/* Given Data Box */}
+                  {activeLesson.board_content?.given_data && (
+                    <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs sm:text-sm font-mono text-emerald-200">
+                      <span className="text-amber-300 font-bold block font-sans text-xs mb-1">
+                        {selectedLanguage === 'ta' ? 'கொடுக்கப்பட்ட விவரங்கள் (Given Data):' : 'Given Data:'}
+                      </span>
+                      <p className="whitespace-pre-wrap leading-relaxed">{activeLesson.board_content.given_data}</p>
+                    </div>
+                  )}
+
+                  {/* Governing Formula Box - Strictly labeled Formula / ஃபார்முலா, NO archaic 'சூத்திரம்' */}
+                  {activeLesson.board_content?.core_formula && (
+                    <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-amber-400/50 text-xs sm:text-sm font-mono text-amber-100">
+                      <span className="text-amber-300 font-bold block font-sans text-xs mb-1 flex items-center gap-1">
+                        <Calculator className="h-3.5 w-3.5 text-amber-400" />
+                        {selectedLanguage === 'ta' ? 'ஃபார்முலா (Governing Formula):' : 'Governing Formula:'}
+                      </span>
+                      <p className="whitespace-pre-wrap font-bold leading-relaxed">{activeLesson.board_content.core_formula}</p>
+                    </div>
+                  )}
+
+                  {/* Target Answer / Result to be Proven Box (Gold Framed) */}
+                  {(activeLesson.board_content?.target_answer || activeLesson.board_content?.final_answer) && (
+                    <div className="p-4 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-950/40 text-amber-200 text-center shadow-lg space-y-1">
+                      <span className="text-xs font-serif font-extrabold uppercase tracking-wider text-amber-300 block">
+                        🎯 {selectedLanguage === 'ta' ? 'இலக்கு விடை / நிரூபிக்க வேண்டியது (Target to Prove):' : 'Target Answer / Result to Prove:'}
+                      </span>
+                      <p className="text-base sm:text-lg font-mono font-black text-white">
+                        {activeLesson.board_content.target_answer || activeLesson.board_content.final_answer}
+                      </p>
+                      <p className="text-[11px] font-sans text-emerald-200/80 pt-1">
+                        {selectedLanguage === 'ta' ? 'வலது பக்கத்தில் இந்த விடைக்கான முழு படிமுறை தீர்வு எழுதப்பட்டுள்ளது.' : 'See the complete step proof written on the right side.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* PART 2 (Right Side / 7 Columns): Hand-Written Style Step Proof + Detailed "How It Came" Explanation */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between border-b border-amber-400/40 pb-2">
+                    <span className="text-xs font-bold font-serif uppercase tracking-wider text-amber-300">
+                      {selectedLanguage === 'ta' ? 'பகுதி 2: கரும்பலகை படிமுறை தீர்வு & நிரூபணம்' : 'Part 2: Hand-Written Step Proof & Derivation'}
+                    </span>
+                    <span className="text-[11px] text-emerald-300 font-mono">
+                      {activeLesson.board_content?.steps?.length || 0} Steps
+                    </span>
+                  </div>
+
+                  {/* Step-by-Step Chalk Working */}
+                  <div className="space-y-4">
+                    {activeLesson.board_content?.steps?.map((step, idx) => {
+                      const isActive = isTeachingStarted && currentStepIndex === idx;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => handleGoToStep(idx)}
+                          className={`p-4 rounded-2xl transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-emerald-900/90 border-2 border-amber-400 shadow-xl translate-x-1'
+                              : 'bg-emerald-950/50 border border-emerald-800/60 hover:bg-emerald-900/40'
+                          }`}
+                        >
+                          <div className="space-y-2.5">
+                            {/* Step Title Header */}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-serif font-bold text-amber-300 text-sm sm:text-base underline decoration-amber-400/50">
+                                Step {step.step_number || idx + 1}: {step.title}
+                              </span>
+                              {step.marking_tip && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-amber-200/90 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-700/50">
+                                  <Award className="h-3 w-3 text-amber-400 shrink-0" />
+                                  {step.marking_tip}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Pure Handwritten Chalk Working (Equations) */}
+                            <div className="p-3 rounded-xl bg-black/40 border border-emerald-700/60 font-mono text-xs sm:text-sm font-bold text-white whitespace-pre-wrap leading-relaxed shadow-inner">
+                              {step.work}
+                            </div>
+
+                            {/* Written Explanation: "இது எப்படி வந்தது" (How this step came about) */}
+                            <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-700/50 text-xs sm:text-sm text-emerald-100 leading-relaxed font-sans space-y-1">
+                              <span className="text-amber-300 font-bold block text-xs flex items-center gap-1.5">
+                                <Lightbulb className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                {selectedLanguage === 'ta' ? '💡 இது எப்படி வந்தது (விளக்கம்):' : '💡 How this step was derived:'}
+                              </span>
+                              <p className="text-emerald-100/95 font-medium leading-relaxed">
+                                {step.how_it_came || (selectedLanguage === 'ta'
+                                  ? 'மேற்கண்ட சமன்பாட்டில் மாறிகளின் மதிப்புகளை ஃபார்முலாவில் பிரதியிட்டு சுருக்கும் போது இந்த படிநிலை பெறப்படுகிறது.'
+                                  : 'Substitute known values and simplify algebraically to arrive at this intermediate step.')}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Final Verified Answer Box (Chalk Box) */}
+                  {activeLesson.board_content?.final_answer && (
+                    <div className="pt-2">
+                      <div className="p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-950/90 shadow-xl text-center">
+                        <p className="text-xs font-serif font-extrabold text-amber-300 tracking-wider">
+                          ✅ {selectedLanguage === 'ta' ? 'நிரூபிக்கப்பட்டது / இறுதி விடை (Final Verified Answer):' : 'FINAL VERIFIED ANSWER (Q.E.D.):'}
+                        </p>
+                        <p className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
+                          {activeLesson.board_content.final_answer}
+                        </p>
+                        {activeLesson.board_content.exam_presentation_tip && (
+                          <p className="text-xs font-sans text-amber-200/90 pt-1.5">
+                            💡 {activeLesson.board_content.exam_presentation_tip}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ready Confirmation Gate (When teaching hasn't started yet) */}
+              {!isTeachingStarted && (
+                <div className="mt-4 p-4 rounded-2xl bg-amber-950/70 border border-amber-500/80 text-center space-y-3">
+                  <p className="text-sm sm:text-base font-bold text-amber-200">
+                    ✨ {activeLesson.ready_prompt || (selectedLanguage === 'ta' ? 'கரும்பலகையில் தீர்வு தயார்! படிநிலைகளை பார்க்கலாமா?' : 'Solution written on board! Shall we view the steps?')}
+                  </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleStartTeaching}
+                      className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-transform"
+                    >
+                      🚀 {selectedLanguage === 'ta' ? 'ஆம், படிநிலைகளை காட்டு (Show Steps)' : 'Yes, Show Step Derivation!'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ────── INTERACTIVE DOUBT RESOLUTION (TEXT-ONLY: NO VOICE/MIC) ────── */}
         <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-purple-200 shadow-md p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HelpCircle className="h-5 w-5 text-purple-600" />
               <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">
-                {selectedLanguage === 'ta' ? 'ஆசிரியையிடம் சந்தேகம் கேளுங்கள் (Ask Doubt)' : 'Ask Teacher a Doubt / Question'}
+                {selectedLanguage === 'ta' ? 'ஆசிரியையிடம் சந்தேகம் கேளுங்கள் (Ask Doubt via Text)' : 'Ask Teacher a Doubt (Text)'}
               </h4>
             </div>
             <span className="text-xs text-slate-500">
-              {selectedLanguage === 'ta' ? 'குரல் அல்லது எழுத்து மூலம்' : 'Voice or Text'}
+              {selectedLanguage === 'ta' ? 'எழுத்து மூலம் தட்டச்சு செய்து கேளுங்கள்' : 'Type your question below'}
             </span>
           </div>
 
-          {/* Mic and Input Row */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Mic Button with Sound Waves */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isListening) {
-                    stopVoiceListening();
-                    if (speechTranscript) {
-                      void handleAskDoubt(speechTranscript);
-                    }
-                  } else {
-                    startVoiceListening();
-                  }
-                }}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow transition-all active:scale-95 cursor-pointer shrink-0 ${
-                  isListening
-                    ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
-                title={isListening ? 'Tap to submit doubt' : 'Tap to speak your doubt'}
-              >
-                <Mic className={`h-5 w-5 ${isListening ? 'animate-bounce' : ''}`} />
-              </button>
-
-              {/* Sound Wave preview */}
-              <div className="flex items-center gap-1 h-6 px-2">
-                {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.4].map((height, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      height: `${(isPlayingAudio || isListening ? height : 0.2) * 20}px`,
-                      transition: 'height 0.2s ease-in-out'
-                    }}
-                    className={`w-1 rounded-full ${
-                      isListening
-                        ? 'bg-rose-500'
-                        : isPlayingAudio
-                        ? 'bg-purple-600 animate-pulse'
-                        : 'bg-slate-200'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Doubt Input Text Field */}
-            <div className="flex-1 flex gap-2">
-              <input
-                type="text"
-                value={userDoubtInput}
-                onChange={(e) => setUserDoubtInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAskDoubt()}
-                placeholder={
-                  selectedLanguage === 'ta'
-                    ? 'எ.கா: படி 2 புரியல, மறுபடியும் எளிமையா சொல்லுங்க...'
-                    : 'e.g. I did not understand Step 2, please explain more simply...'
-                }
-                className="flex-1 text-xs sm:text-sm py-2.5 px-4 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50/50"
-              />
-              <button
-                type="button"
-                onClick={() => handleAskDoubt()}
-                disabled={askingDoubt || !userDoubtInput.trim()}
-                className="py-2.5 px-5 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow cursor-pointer flex items-center gap-1.5"
-              >
-                {askingDoubt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                <span className="hidden sm:inline">Ask</span>
-              </button>
-            </div>
+          {/* Doubt Input Row */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={userDoubtInput}
+              onChange={(e) => setUserDoubtInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAskDoubt()}
+              placeholder={
+                selectedLanguage === 'ta'
+                  ? 'எ.கா: படி 2 எப்படி வந்தது, மறுபடியும் விளக்குங்கள்...'
+                  : 'e.g. How was Step 2 derived? Please explain in simpler words...'
+              }
+              className="flex-1 text-xs sm:text-sm py-2.5 px-4 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50/50"
+            />
+            <button
+              type="button"
+              onClick={() => handleAskDoubt()}
+              disabled={askingDoubt || !userDoubtInput.trim()}
+              className="py-2.5 px-5 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow cursor-pointer flex items-center gap-1.5"
+            >
+              {askingDoubt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <span>{selectedLanguage === 'ta' ? 'கேள்வி கேள்' : 'Ask'}</span>
+            </button>
           </div>
-
-          {/* Speech transcript preview */}
-          {speechTranscript && (
-            <div className="text-xs p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 font-medium flex items-center justify-between">
-              <span>🎙️ &ldquo;{speechTranscript}&rdquo;</span>
-              <button
-                type="button"
-                onClick={() => handleAskDoubt(speechTranscript)}
-                className="text-indigo-700 font-bold underline cursor-pointer ml-2"
-              >
-                Send Doubt
-              </button>
-            </div>
-          )}
 
           {/* Active Doubt Resolution Box */}
           {activeDoubt && (
