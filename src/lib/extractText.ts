@@ -275,3 +275,39 @@ export async function extractTextFromFile(
   const raw = await file.text();
   return { text: cleanMathFormatting(raw), kind: 'text' };
 }
+
+/**
+ * Render first page of a PDF as a high-resolution base64 JPEG image for Gemini Vision multimodal analysis.
+ */
+export async function renderPdfFirstPageAsBase64(file: File): Promise<string | null> {
+  try {
+    const pdfjs = await import('pdfjs-dist');
+    const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const document = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    if (document.numPages < 1) {
+      await document.destroy();
+      return null;
+    }
+    const page = await document.getPage(1);
+    const viewport = page.getViewport({ scale: 1.8 });
+    const canvas = window.document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) {
+      await document.destroy();
+      return null;
+    }
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.render({ canvasContext: context, viewport } as any).promise;
+    const base64 = canvas.toDataURL('image/jpeg', 0.90);
+    await document.destroy();
+    return base64;
+  } catch (e) {
+    console.warn('renderPdfFirstPageAsBase64 note:', e);
+    return null;
+  }
+}
