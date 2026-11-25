@@ -2,17 +2,20 @@ import { useState, useRef, useEffect, type DragEvent } from 'react';
 import {
   Calculator, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Award, Camera, ImagePlus,
   FileUp, Loader2, Send, HelpCircle, BookOpen, Lightbulb,
-  Maximize2, Minimize2, Check, FileText, Image as ImageIcon, Sparkle
+  Maximize2, Minimize2, Check, FileText, Image as ImageIcon, Sparkle, X, UploadCloud
 } from 'lucide-react';
 import { useApp } from '@/context/useApp';
 import {
   fetchMathTeacherLesson,
   askMathTeacherDoubt,
+  solveMathQuestion,
   type MathTeacherLessonResponse,
-  type MathTeacherDoubtResponse
+  type MathTeacherDoubtResponse,
+  type MathSolveResponse
 } from '@/lib/geminiApi';
 import { extractTextFromFile, renderPdfFirstPageAsBase64 } from '@/lib/extractText';
 import { ErrorNotice } from '@/components/ui';
+import { MathWhiteboard } from '@/components/MathWhiteboard';
 
 // Quick preset high-yield math problems for instant 1-click learning
 const PRESET_MATH_QUESTIONS: Record<string, { label: string; question: string }[]> = {
@@ -55,6 +58,13 @@ export function MathStudyPage() {
   const [activeLesson, setActiveLesson] = useState<MathTeacherLessonResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // AI Maths Teacher with Whiteboard Feature State
+  const [whiteboardLesson, setWhiteboardLesson] = useState<MathSolveResponse | null>(null);
+  const [studentAnswerFile, setStudentAnswerFile] = useState<File | null>(null);
+  const [studentAnswerBase64, setStudentAnswerBase64] = useState<string | null>(null);
+  const [isSimplerLoading, setIsSimplerLoading] = useState(false);
+  const studentAnswerInputRef = useRef<HTMLInputElement>(null);
 
   // Lesson teaching state
   const [isTeachingStarted, setIsTeachingStarted] = useState(false);
@@ -103,6 +113,87 @@ export function MathStudyPage() {
       reader.readAsDataURL(file);
     } else {
       setSelectedBase64(null);
+    }
+  };
+
+  // Handle student's handwritten answer selection (Optional feature)
+  const handleStudentAnswerSelected = (file: File) => {
+    setStudentAnswerFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setStudentAnswerBase64(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // AI Maths Teacher with Whiteboard Solver Handler
+  const handleSolveWithWhiteboard = async (isSimpler = false) => {
+    let qBase64 = selectedBase64;
+
+    if (!qBase64 && selectedFile) {
+      if (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')) {
+        try {
+          qBase64 = await renderPdfFirstPageAsBase64(selectedFile);
+        } catch (e) {
+          console.warn('PDF visual render note:', e);
+        }
+      } else {
+        const reader = new FileReader();
+        qBase64 = await new Promise<string>((res) => {
+          reader.onload = () => res(reader.result as string);
+          reader.readAsDataURL(selectedFile);
+        });
+      }
+    }
+
+    const trimmedQuestion = inputQuestion.trim();
+
+    if (!qBase64 && !trimmedQuestion) {
+      setError(
+        selectedLanguage === 'ta'
+          ? 'தயவுசெய்து ஒரு கணிதக் கேள்வியின் புகைப்படத்தை பதிவேற்றவும் அல்லது கேள்வியை தட்டச்சு செய்யவும்.'
+          : 'Please upload an image of your maths question or type the question.'
+      );
+      return;
+    }
+
+    if (isSimpler) {
+      setIsSimplerLoading(true);
+    } else {
+      setLoading(true);
+      setWhiteboardLesson(null);
+    }
+    setError(null);
+
+    try {
+      setUploadStatus(
+        isSimpler
+          ? (selectedLanguage === 'ta' ? 'கரும்பலகை அழிக்கப்பட்டு மிக எளிய விளக்கம் தயாராகிறது...' : 'Erasing board... preparing simpler explanation...')
+          : (selectedLanguage === 'ta' ? 'AI கணித ஆசிரியர் கரும்பலகையில் தீர்வு எழுதுகிறார்...' : 'AI Maths Teacher is writing step-by-step solution on the whiteboard...')
+      );
+
+      const resp = await solveMathQuestion({
+        image: qBase64 || undefined,
+        studentAnswer: studentAnswerBase64 || undefined,
+        isSimpler,
+        questionText: trimmedQuestion || undefined,
+        language: selectedLanguage
+      });
+
+      setWhiteboardLesson(resp);
+
+      setTimeout(() => {
+        const boardEl = document.getElementById('whiteboard-solution-area');
+        if (boardEl) boardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+
+    } catch (err: any) {
+      console.error('solveMathQuestion error:', err);
+      setError(err?.message || 'Could not solve maths question. Please check backend connection.');
+    } finally {
+      setLoading(false);
+      setIsSimplerLoading(false);
+      setUploadStatus('');
     }
   };
 
@@ -442,25 +533,63 @@ export function MathStudyPage() {
           </div>
 
           <div className="py-2 flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-              {selectedFile ? (
-                selectedFile.name.endsWith('.pdf') ? (
-                  <FileText className="h-5 w-5 text-purple-700" />
-                ) : (
-                  <ImageIcon className="h-5 w-5 text-indigo-700" />
-                )
-              ) : (
-                <FileUp className="h-5 w-5" />
-              )}
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 truncate max-w-[170px]">
-                {selectedFile ? selectedFile.name : (isTamilMode ? 'பதிவேற்ற தட்டவும் / இழுத்து விடவும்' : 'Click to Upload or Drag & Drop')}
-              </p>
-              <p className="text-[11px] text-slate-500">
-                {isTamilMode ? 'கணித PDF அல்லது புகைப்படம்' : 'Only Maths PDF / Image Allowed'}
-              </p>
-            </div>
+            {selectedBase64 ? (
+              <div className="flex items-center gap-3 w-full">
+                <div className="relative group shrink-0">
+                  <img
+                    src={selectedBase64}
+                    alt="Question preview"
+                    className="h-14 w-14 sm:h-16 sm:w-16 object-cover rounded-xl border-2 border-emerald-400 shadow-md bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                      setSelectedBase64(null);
+                    }}
+                    className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow cursor-pointer transition-transform active:scale-95"
+                    title="Remove image"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="text-left overflow-hidden flex-1">
+                  <p className="text-xs font-bold text-slate-800 truncate">
+                    {selectedFile?.name || 'math-question.jpg'}
+                  </p>
+                  <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {isTamilMode ? 'கேள்வி படம் தயார்' : 'Question image ready'}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {isTamilMode ? 'மாற்ற தட்டவும்' : 'Tap to change'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  {selectedFile ? (
+                    selectedFile.name.endsWith('.pdf') ? (
+                      <FileText className="h-5 w-5 text-purple-700" />
+                    ) : (
+                      <ImageIcon className="h-5 w-5 text-indigo-700" />
+                    )
+                  ) : (
+                    <FileUp className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-slate-800 truncate max-w-[170px]">
+                    {selectedFile ? selectedFile.name : (isTamilMode ? 'பதிவேற்ற தட்டவும் / இழுத்து விடவும்' : 'Click to Upload or Drag & Drop')}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {isTamilMode ? 'கணித PDF அல்லது புகைப்படம்' : 'Only Maths PDF / Image Allowed'}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-200/60">
@@ -513,39 +642,116 @@ export function MathStudyPage() {
           />
         </div>
 
-        {/* Column 3: Analyze with AI Button */}
-        <div className="flex flex-col justify-between space-y-3 p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/80">
+        {/* Column 3: AI Teacher Whiteboard Solver Action Button */}
+        <div className="flex flex-col justify-between space-y-3 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/70 border border-emerald-200/90 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-purple-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-full bg-emerald-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
               3
             </div>
             <h3 className="font-bold text-slate-800 text-sm">
-              {isTamilMode ? 'AI மூலம் பகுப்பாய்வு' : 'Analyze with AI'}
+              {isTamilMode ? 'கரும்பலகையில் தீர்வு' : 'AI Whiteboard Teacher'}
             </h3>
           </div>
 
-          <button
-            type="button"
-            onClick={() => handleAnalyzeSyllabus()}
-            disabled={loading}
-            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-75"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>{isTamilMode ? 'கணக்கை தீர்க்கிறது...' : 'Solving Math...'}</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                <span>{isTamilMode ? '✨ இப்போது தீர்க்க ➔' : '✨ Analyze Now ➔'}</span>
-              </>
-            )}
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => handleSolveWithWhiteboard(false)}
+              disabled={loading}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-75"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{isTamilMode ? 'கரும்பலகையில் தீர்க்கிறது...' : 'Solving on Whiteboard...'}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  <span>{isTamilMode ? '✨ கரும்பலகையில் தீர்க்க ➔' : '✨ Solve on Whiteboard ➔'}</span>
+                </>
+              )}
+            </button>
 
-          <p className="text-[11px] text-center text-slate-500 flex items-center justify-center gap-1">
-            <span>⚡</span> {isTamilMode ? 'கரும்பலகையில் துல்லியமான படிமுறை தீர்வு...' : 'High-speed step derivation on chalkboard...'}
+            <button
+              type="button"
+              onClick={() => handleAnalyzeSyllabus()}
+              disabled={loading}
+              className="w-full py-1.5 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              {isTamilMode ? 'பாடத்திட்ட பகுப்பாய்வு முறை' : 'Full Syllabus Breakdown Mode'}
+            </button>
+          </div>
+
+          <p className="text-[11px] text-center text-emerald-800/80 flex items-center justify-center gap-1 font-medium">
+            <span>⚡</span> {isTamilMode ? 'கரும்பலகை கையெழுத்து & KaTeX தீர்வு...' : 'Classroom handwriting & KaTeX equations...'}
           </p>
+        </div>
+      </div>
+
+      {/* Student's Own Written Answer (Optional) Upload Card */}
+      <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center text-lg shrink-0">
+            ✍️
+          </div>
+          <div>
+            <p className="font-bold text-amber-950 text-xs sm:text-sm">
+              {isTamilMode ? 'உங்கள் கையெழுத்து விடை (விருப்பத்திற்கேற்ப):' : 'Upload Your Written Answer (Optional):'}
+            </p>
+            <p className="text-[11px] text-amber-800/80">
+              {isTamilMode
+                ? 'உங்கள் விடையை ஆசிரியர் சரிபார்த்து, தவறை அன்பாக சுட்டிக்காட்டி சரியான வழியை விளக்குவார்.'
+                : 'The AI teacher will check your written work, point out any mistake kindly, and show the right way.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {studentAnswerBase64 ? (
+            <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-amber-300 shadow-sm">
+              <img
+                src={studentAnswerBase64}
+                alt="Student Answer Preview"
+                className="h-9 w-9 object-cover rounded-lg border border-amber-200"
+              />
+              <span className="font-mono text-[11px] text-slate-700 max-w-[110px] truncate">
+                {studentAnswerFile?.name || 'my-answer.jpg'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentAnswerFile(null);
+                  setStudentAnswerBase64(null);
+                }}
+                className="text-rose-600 hover:text-rose-800 p-1 cursor-pointer"
+                title="Remove answer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => studentAnswerInputRef.current?.click()}
+              className="py-2 px-3.5 rounded-xl bg-white hover:bg-amber-100/70 border border-amber-300 text-amber-900 font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
+            >
+              <Camera className="h-3.5 w-3.5 text-amber-700" />
+              <span>{isTamilMode ? 'விடை படம் இணைக்க' : 'Attach Your Answer'}</span>
+            </button>
+          )}
+
+          <input
+            type="file"
+            ref={studentAnswerInputRef}
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleStudentAnswerSelected(e.target.files[0]);
+              }
+            }}
+            accept="image/*"
+            className="hidden"
+          />
         </div>
       </div>
 
@@ -606,6 +812,21 @@ export function MathStudyPage() {
           </button>
         ))}
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          AI MATHS TEACHER WITH WHITEBOARD DISPLAY
+      ───────────────────────────────────────────────────────────── */}
+      {whiteboardLesson && (
+        <div id="whiteboard-solution-area" className="w-full pt-4">
+          <MathWhiteboard
+            lesson={whiteboardLesson}
+            onNotUnderstood={() => handleSolveWithWhiteboard(true)}
+            onUnderstood={() => {}}
+            isSimplerLoading={isSimplerLoading}
+            language={selectedLanguage}
+          />
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           3. LEARNING VIEW ARENA — Chalkboard Arena

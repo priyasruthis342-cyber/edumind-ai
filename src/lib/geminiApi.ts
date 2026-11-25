@@ -416,5 +416,81 @@ export async function askMathTeacherDoubt(
   }
 }
 
+export interface MathSolveStep {
+  explanation: string;
+  board: string;
+}
+
+export interface MathSolveResponse {
+  success: boolean;
+  intro: string;
+  steps: MathSolveStep[];
+  finalAnswer: string;
+  error?: string;
+}
+
+/**
+ * AI Maths Teacher with Whiteboard:
+ * Calls POST /api/solve (with fallback to /api/gemini/solve)
+ */
+export async function solveMathQuestion(params: {
+  image?: string;
+  imageBase64?: string;
+  studentAnswer?: string;
+  studentAnswerBase64?: string;
+  isSimpler?: boolean;
+  questionText?: string;
+  language?: string;
+}): Promise<MathSolveResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const payload = {
+      image: params.image || params.imageBase64,
+      studentAnswer: params.studentAnswer || params.studentAnswerBase64,
+      isSimpler: !!params.isSimpler,
+      questionText: params.questionText || '',
+      language: params.language || 'en'
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(`${BACKEND_URL}/api/solve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch {
+      res = await fetch(`${BACKEND_URL}/api/gemini/solve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    }
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `Math solving failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    return {
+      success: true,
+      intro: data.intro || "Come students, let's look at today's question.",
+      steps: Array.isArray(data.steps) ? data.steps : [],
+      finalAnswer: data.finalAnswer || ''
+    };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    console.error('solveMathQuestion error:', err);
+    throw err;
+  }
+}
+
 
 
