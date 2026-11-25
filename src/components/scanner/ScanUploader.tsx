@@ -24,7 +24,7 @@ export function ScanUploader({
   courseLabel?: string;
   onSubmit: (submission: ScanSubmission) => Promise<void>;
 }) {
-  const { t } = useApp();
+  const { t, language } = useApp();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +47,7 @@ export function ScanUploader({
     setExtractionStatus('Preparing document for extraction...');
     setError(null);
     try {
-      const result = await extractTextFromFile(file, (status) => setExtractionStatus(status));
+      const result = await extractTextFromFile(file, (status) => setExtractionStatus(status), language);
       if (!result.text || !result.text.trim()) {
         throw new Error('No readable text could be found in the document. Please ensure the file contains legible text or scanned pages.');
       }

@@ -128,7 +128,7 @@ async function compressAndDownscaleImage(file: Blob | File, maxDim = 1800): Prom
  * Uses high-speed server-side Gemini Vision OCR with multi-lingual support (Tamil, English, Hindi, Malayalam, Telugu, Kannada).
  * Deciphers handwritten notes accurately without falling back to broken client-side character engines.
  */
-async function extractImage(file: Blob | File, onProgress?: (msg: string) => void): Promise<string> {
+async function extractImage(file: Blob | File, onProgress?: (msg: string) => void, language = 'en'): Promise<string> {
   onProgress?.('Optimizing photo for handwriting & text reading...');
   let optimizedBlob: Blob | File = file;
   try {
@@ -141,7 +141,7 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
   try {
     onProgress?.('Transcribing handwriting & text with Google Gemini Vision...');
     const rawVisionText = await withTimeout(
-      extractImageWithGemini(optimizedBlob),
+      extractImageWithGemini(optimizedBlob, language),
       45000,
       'Gemini Vision OCR'
     );
@@ -158,7 +158,7 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
     onProgress?.('Retrying high-accuracy handwriting recognition...');
     const compactBlob = await compressAndDownscaleImage(file, 1200);
     const rawVisionText2 = await withTimeout(
-      extractImageWithGemini(compactBlob),
+      extractImageWithGemini(compactBlob, language),
       40000,
       'Gemini Vision OCR Retry'
     );
@@ -177,7 +177,7 @@ async function extractImage(file: Blob | File, onProgress?: (msg: string) => voi
  * Extract complete text from a PDF file using pdfjs-dist.
  * Complete A to Z extraction supporting digital PDFs and multi-page scanned PDFs.
  */
-async function extractPdf(file: File, onProgress?: (msg: string) => void): Promise<string> {
+async function extractPdf(file: File, onProgress?: (msg: string) => void, language = 'en'): Promise<string> {
   onProgress?.('Reading PDF structure...');
   const pdfjs = await import('pdfjs-dist');
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
@@ -237,7 +237,7 @@ async function extractPdf(file: File, onProgress?: (msg: string) => void): Promi
 
         const pageBlob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.88));
         if (pageBlob) {
-          const text = await extractImage(pageBlob, onProgress);
+          const text = await extractImage(pageBlob, onProgress, language);
           if (text.trim()) {
             ocrPages.push(`--- Page ${pageNumber} ---\n` + text.trim());
           }
@@ -261,15 +261,16 @@ async function extractPdf(file: File, onProgress?: (msg: string) => void): Promi
  */
 export async function extractTextFromFile(
   file: File,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  language = 'en'
 ): Promise<ExtractedFile> {
   const name = file.name.toLowerCase();
   if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
-    const raw = await extractPdf(file, onProgress);
+    const raw = await extractPdf(file, onProgress, language);
     return { text: cleanMathFormatting(raw), kind: 'pdf' };
   }
   if (file.type.startsWith('image/')) {
-    const raw = await extractImage(file, onProgress);
+    const raw = await extractImage(file, onProgress, language);
     return { text: cleanMathFormatting(raw), kind: 'image' };
   }
   const raw = await file.text();

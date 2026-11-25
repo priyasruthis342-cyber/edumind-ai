@@ -263,7 +263,7 @@ export async function fetchGeminiChat(
  * Ultra-fast server-side Gemini Vision OCR for textbook pages, notes & camera scans.
  * Bypasses heavy mobile WASM downloads and extracts text in ~1-2 seconds.
  */
-export async function extractImageWithGemini(file: Blob | File): Promise<string> {
+export async function extractImageWithGemini(file: Blob | File, language = 'en'): Promise<string> {
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
@@ -279,7 +279,7 @@ export async function extractImageWithGemini(file: Blob | File): Promise<string>
     const res = await fetch(`${BACKEND_URL}/api/gemini/extract-image-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64, mimeType }),
+      body: JSON.stringify({ imageBase64: base64, mimeType, language }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -417,16 +417,66 @@ export async function askMathTeacherDoubt(
 }
 
 export interface MathSolveStep {
-  explanation: string;
+  speech: string;
   board: string;
+  explanation?: string;
+}
+
+export interface MathSolveUserFeedback {
+  hasUserAnswer: boolean;
+  isCorrect: boolean;
+  feedback: string;
 }
 
 export interface MathSolveResponse {
   success: boolean;
+  questionTitle: string;
   intro: string;
+  userFeedback?: MathSolveUserFeedback;
   steps: MathSolveStep[];
   finalAnswer: string;
+  understoodPrompt?: string;
   error?: string;
+}
+
+/**
+ * Synthesizes female neural audio from backend for the AI Maths Teacher.
+ * Returns audio object URL or null if fallback to browser speech is needed.
+ */
+export async function fetchTeacherAudioUrl(text: string, language = 'ta'): Promise<string | null> {
+  if (!text || !text.trim()) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    let res = await fetch(`${BACKEND_URL}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, language }),
+      signal: controller.signal
+    }).catch(async () => {
+      return await fetch(`${BACKEND_URL}/api/gemini/synthesize-speech`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language }),
+        signal: controller.signal
+      });
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res && res.ok) {
+      const blob = await res.blob();
+      if (blob && blob.size > 150) {
+        return URL.createObjectURL(blob);
+      }
+    }
+    return null;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn('Backend TTS fetch note:', err);
+    return null;
+  }
 }
 
 /**
@@ -481,9 +531,18 @@ export async function solveMathQuestion(params: {
     const data = await res.json();
     return {
       success: true,
-      intro: data.intro || "Come students, let's look at today's question.",
-      steps: Array.isArray(data.steps) ? data.steps : [],
-      finalAnswer: data.finalAnswer || ''
+      questionTitle: data.questionTitle || params.questionText || 'Mathematics Question',
+      intro: data.intro || (params.language === 'ta' ? "சரி பசங்களா, இப்போ இந்த கணக்கைப் பார்க்கலாம்." : "Come students, let's look at today's question."),
+      userFeedback: data.userFeedback,
+      steps: Array.isArray(data.steps)
+        ? data.steps.map((s: any) => ({
+            speech: s.speech || s.explanation || '',
+            board: s.board || '',
+            explanation: s.explanation || s.speech || ''
+          }))
+        : [],
+      finalAnswer: data.finalAnswer || '',
+      understoodPrompt: data.understoodPrompt || (params.language === 'ta' ? "புரிஞ்சுதா பசங்களா?" : "Did you understand?")
     };
   } catch (err: any) {
     clearTimeout(timeoutId);
